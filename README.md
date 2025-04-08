@@ -309,6 +309,7 @@ This tool wouldn't exist without the following incredible projects. Please go an
 - [Bento4](https://github.com/axiomatic-systems/Bento4) - The `mp4dump` tool was used really often during development to check the generated segments. I also found out, how to parse EAC-3 `CodecPrivateData` thanks to [this](https://github.com/axiomatic-systems/Bento4/blob/3bdc891602d19789b8e8626e4a3e613a937b4d35/Source/Python/utils/mp4utils.py#L1047-L1054) snippet. There is really nowehere else on the internet where I could find this information.
 - [DashMe](https://github.com/canalplus/DashMe) - Similar project to this one, but doesn't compile anymore and relies on FFmpeg. It was a great inspiration for this project however.
 - [Go](https://go.dev/) - The Go programming language. I am not a professional developer, but I was able to get this working with Go. It is a great language.
+- [go-mpd](https://github.com/unki2aut/go-mpd) - I took code and inspiration for the MPD serialization. Really useful lib.
 - [go-xsd-types](github.com/unki2aut/go-xsd-types) - Useful small project I use mainly to parse DASH specific durations to Go time.Duration types.
 - [fsnotify](github.com/fsnotify/fsnotify) - Used to watch the config file for changes in a cross platform way. Super handy!
 - [MagNumDB](https://www.magnumdb.com) - Helped me figure out the UUID for EAC-3 audio codec.

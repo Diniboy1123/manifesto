@@ -9,6 +9,10 @@ import (
 	"github.com/unki2aut/go-xsd-types"
 )
 
+/* Based on https://github.com/unki2aut/go-mpd/blob/master/mpd.go
+ *  Copyright (c) 2015 mc² software
+ */
+
 type UTCTiming struct {
 	SchemeIdUri string `xml:"schemeIdUri,attr"`
 	Value       string `xml:"value,attr"`
