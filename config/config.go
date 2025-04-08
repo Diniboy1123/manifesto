@@ -24,6 +24,8 @@ type Config struct {
 	SaveDir string `json:"save_dir"`
 	// List of channels
 	Channels []Channel `json:"channels"`
+	// Map of channels for faster lookups by ID
+	channelMap map[string]Channel
 	// Whether to serve subtitles in manifest requests (ffmpeg gets stuck with stpp subtitles)
 	AllowSubs bool `json:"allow_subs"`
 	// List of users for authentication (leave empty for no auth)
@@ -32,7 +34,8 @@ type Config struct {
 	CacheDuration JSONDuration `json:"cache_duration"`
 	// Path to the log file (if empty, log only to stdout)
 	LogPath string `json:"log_path"`
-	// Whether to use a cache for HTTP requests
+	// GlobalHeaders is a map of HTTP header names to their values.
+	// Keys represent header names (e.g., "Authorization"), and values represent their corresponding values (e.g., "Bearer token").
 	GlobalHeaders map[string]string `json:"global_headers"`
 }
 
@@ -40,9 +43,11 @@ type Config struct {
 type Channel struct {
 	// Unique identifier for the channel, used in the URLs to identify the channel
 	Id string `json:"id"`
-	// Currently unused, but might be used in the future, set it to "ism" for now
+	// Reserved for future use to specify the source type of the channel.
+	// Currently, it is unused and should be set to "ism" as a placeholder.
 	SourceType string `json:"source_type"`
-	// Currently unused, but might be used in the future, set it to "mpd" for now
+	// Reserved for future use to specify the destination type of the channel.
+	// Currently unused, but intended for future support of different output formats. Set it to "mpd" for now.
 	DestinationType string `json:"destination_type"`
 	// Friendly name for the channel, might be used in the future for display purposes
 	Name string `json:"name"`
@@ -121,6 +126,10 @@ func reloadConfig() error {
 
 	configMutex.Lock()
 	appConfig = newConfig
+	appConfig.channelMap = make(map[string]Channel)
+	for _, ch := range appConfig.Channels {
+		appConfig.channelMap[ch.Id] = ch
+	}
 	ConfigLoaded = true
 	configMutex.Unlock()
 
@@ -145,6 +154,7 @@ func WatchConfig() {
 
 	go func() {
 		var debounceTimer *time.Timer
+		var debounceMutex sync.Mutex
 		for {
 			select {
 			case event, ok := <-watcher.Events:
@@ -152,12 +162,14 @@ func WatchConfig() {
 					return
 				}
 				if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+					debounceMutex.Lock()
 					if debounceTimer != nil {
 						debounceTimer.Stop()
 					}
 					debounceTimer = time.AfterFunc(200*time.Millisecond, func() {
 						retryReloadConfig(3, 100*time.Millisecond)
 					})
+					debounceMutex.Unlock()
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -181,9 +193,10 @@ func validateConfig(config Config) error {
 	if config.SaveDir == "" {
 		return fmt.Errorf("save_dir cannot be empty")
 	}
-	if config.CacheDuration <= 0 {
+	if config.CacheDuration.Duration() <= 0 {
 		return fmt.Errorf("cache_duration must be greater than 0")
 	}
+
 	return nil
 }
 
@@ -226,13 +239,13 @@ func (d JSONDuration) Duration() time.Duration {
 
 // GetKey retrieves a key by its keyId from the channel's keys
 func (c Channel) GetKey(keyID []byte) ([]byte, error) {
-	for _, key := range c.Keys {
-		keyId, key, err := parseKey(key)
+	for _, rawKey := range c.Keys {
+		keyId, parsedKey, err := parseKey(rawKey)
 		if err != nil {
 			return nil, err
 		}
 		if bytes.Equal(keyId, keyID) {
-			return key, nil
+			return parsedKey, nil
 		}
 	}
 	return nil, fmt.Errorf("key not found")
@@ -241,19 +254,23 @@ func (c Channel) GetKey(keyID []byte) ([]byte, error) {
 // parseKey parses a key string in the format "keyId:keyData"
 // and returns the key ID and key data as byte slices
 func parseKey(key string) (keyID []byte, keyData []byte, err error) {
+	if key == "" {
+		return nil, nil, fmt.Errorf("key cannot be empty")
+	}
+
 	parts := strings.Split(key, ":")
 	if len(parts) != 2 {
-		return nil, nil, fmt.Errorf("invalid key format")
+		return nil, nil, fmt.Errorf("invalid key format, expected 'keyId:keyData'")
 	}
 
 	keyID, err = hex.DecodeString(parts[0])
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid key ID")
+	if err != nil || len(keyID) != 16 {
+		return nil, nil, fmt.Errorf("invalid key ID, must be a 16-byte hex string")
 	}
 
 	keyData, err = hex.DecodeString(parts[1])
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid key data")
+	if err != nil || len(keyData) != 16 {
+		return nil, nil, fmt.Errorf("invalid key data, must be a 16-byte hex string")
 	}
 
 	return keyID, keyData, nil
@@ -261,10 +278,6 @@ func parseKey(key string) (keyID []byte, keyData []byte, err error) {
 
 // GetChannel retrieves a channel by its ID from the configuration
 func (c Config) GetChannel(id string) (Channel, bool) {
-	for _, ch := range c.Channels {
-		if ch.Id == id {
-			return ch, true
-		}
-	}
-	return Channel{}, false
+	channel, exists := c.channelMap[id]
+	return channel, exists
 }
