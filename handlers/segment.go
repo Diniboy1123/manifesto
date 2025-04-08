@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -95,39 +94,11 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var keyId []byte
-	var key []byte
-	var pssh []byte
+	var keyId, key, pssh []byte
 	if smoothStream.Protection != nil {
-		for _, key := range smoothStream.Protection {
-			if strings.ToLower(key.SystemID) == mp4.UUIDPlayReady {
-				pssh, err = base64.StdEncoding.DecodeString(key.CustomData)
-				if err != nil {
-					http.Error(w, fmt.Sprintf("Error decoding PSSH: %v", err), http.StatusInternalServerError)
-					return
-				}
-				pssh = utils.TrimNullBytes(pssh)
-				keyId, err = utils.ExtractPRKeyIdFromPssh(pssh)
-				if err != nil {
-					http.Error(w, fmt.Sprintf("Error extracting key ID: %v", err), http.StatusInternalServerError)
-					return
-				}
-			}
-		}
-
-		if keyId == nil {
-			http.Error(w, "No PlayReady key ID found", http.StatusInternalServerError)
-			return
-		}
-		key, err = channel.GetKey(keyId)
+		keyId, key, pssh, err = utils.ExtractKeyInfo(smoothStream.Protection, channel)
 		if err != nil {
-			if err.Error() == "key not found" && channel.Keys != nil {
-				http.Error(w, fmt.Sprintf("Error fetching key: %v", err), http.StatusInternalServerError)
-				return
-			}
-		}
-		if len(key) == 0 && channel.Keys != nil {
-			http.Error(w, "Key not found", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("DRM Error: %v", err), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -149,13 +120,14 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		avcInitSegment := video.AVCInitSegment{BaseInitSegment: baseSegment}
 		_, decryptInfo, err = avcInitSegment.Generate()
 	case "audio":
-		if qualityLevel.FourCC == "AACL" {
+		switch qualityLevel.FourCC {
+		case "AACL":
 			aacInitSegment := audio.AACInitSegment{BaseInitSegment: baseSegment}
 			_, decryptInfo, err = aacInitSegment.Generate()
-		} else if qualityLevel.FourCC == "EC-3" {
+		case "EC-3":
 			de3InitSegment := audio.De3InitSegment{BaseInitSegment: baseSegment}
 			_, decryptInfo, err = de3InitSegment.Generate()
-		} else {
+		default:
 			http.Error(w, "Unsupported audio codec", http.StatusBadRequest)
 			return
 		}

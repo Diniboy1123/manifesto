@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -76,39 +75,11 @@ func InitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var keyId []byte
-	var key []byte
-	var pssh []byte
+	var keyId, key, pssh []byte
 	if smoothStream.Protection != nil {
-		for _, key := range smoothStream.Protection {
-			if strings.ToLower(key.SystemID) == mp4.UUIDPlayReady {
-				pssh, err = base64.StdEncoding.DecodeString(key.CustomData)
-				if err != nil {
-					http.Error(w, fmt.Sprintf("Error decoding PSSH: %v", err), http.StatusInternalServerError)
-					return
-				}
-				pssh = utils.TrimNullBytes(pssh)
-				keyId, err = utils.ExtractPRKeyIdFromPssh(pssh)
-				if err != nil {
-					http.Error(w, fmt.Sprintf("Error extracting key ID: %v", err), http.StatusInternalServerError)
-					return
-				}
-			}
-		}
-
-		if keyId == nil {
-			http.Error(w, "No PlayReady key ID found", http.StatusInternalServerError)
-			return
-		}
-		key, err = channel.GetKey(keyId)
+		keyId, key, pssh, err = utils.ExtractKeyInfo(smoothStream.Protection, channel)
 		if err != nil {
-			if err.Error() == "key not found" && channel.Keys != nil {
-				http.Error(w, fmt.Sprintf("Error fetching key: %v", err), http.StatusInternalServerError)
-				return
-			}
-		}
-		if len(key) == 0 && channel.Keys != nil {
-			http.Error(w, "Key not found", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("DRM Error: %v", err), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -130,21 +101,23 @@ func InitHandler(w http.ResponseWriter, r *http.Request) {
 		avcInitSegment := video.AVCInitSegment{BaseInitSegment: baseSegment}
 		initSegment, _, err = avcInitSegment.Generate()
 	case "audio":
-		if strings.ToLower(qualityLevel.FourCC) == "aacl" {
+		switch strings.ToLower(qualityLevel.FourCC) {
+		case "aacl":
 			aacInitSegment := audio.AACInitSegment{BaseInitSegment: baseSegment}
 			initSegment, _, err = aacInitSegment.Generate()
-		} else if strings.ToLower(qualityLevel.FourCC) == "ec-3" {
+		case "ec-3":
 			de3InitSegment := audio.De3InitSegment{BaseInitSegment: baseSegment}
 			initSegment, _, err = de3InitSegment.Generate()
-		} else {
+		default:
 			http.Error(w, "Unsupported audio codec", http.StatusBadRequest)
 			return
 		}
 	case "text":
-		if strings.ToLower(qualityLevel.FourCC) == "ttml" {
+		switch strings.ToLower(qualityLevel.FourCC) {
+		case "ttml":
 			stppInitSegment := subtitle.STPPInitSegment{BaseInitSegment: baseSegment}
 			initSegment, err = stppInitSegment.Generate()
-		} else {
+		default:
 			http.Error(w, "Unsupported text codec", http.StatusBadRequest)
 			return
 		}

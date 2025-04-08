@@ -3,9 +3,12 @@ package utils
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"regexp"
+	"strings"
 	"unicode/utf16"
 
+	"github.com/Diniboy1123/manifesto/config"
 	"github.com/Diniboy1123/manifesto/models"
 	"github.com/Eyevinn/mp4ff/mp4"
 )
@@ -89,4 +92,45 @@ func GeneratePsshData(playreadyProtectionData *models.SmoothProtectionHeader) (s
 	}
 
 	return base64.StdEncoding.EncodeToString(psshDataBytes.Bytes()), nil
+}
+
+// ExtractKeyInfo extracts the key ID, key, and PSSH data from the provided protections and channel.
+// It checks for the PlayReady system ID and decodes the PSSH data.
+// If the key ID is found, it retrieves the key from the channel.
+//
+// If the key is not found, it returns an error.
+func ExtractKeyInfo(protections []models.SmoothProtectionHeader, channel config.Channel) (keyId, key, pssh []byte, err error) {
+	for _, prot := range protections {
+		if strings.ToLower(prot.SystemID) == mp4.UUIDPlayReady {
+			pssh, err = base64.StdEncoding.DecodeString(prot.CustomData)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("error decoding PSSH: %w", err)
+			}
+			pssh = TrimNullBytes(pssh)
+
+			keyId, err = ExtractPRKeyIdFromPssh(pssh)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("error extracting key ID: %w", err)
+			}
+			break
+		}
+	}
+
+	if keyId == nil {
+		return nil, nil, nil, fmt.Errorf("no PlayReady key ID found")
+	}
+
+	key, err = channel.GetKey(keyId)
+	if err != nil {
+		if err.Error() == "key not found" && channel.Keys != nil {
+			return keyId, nil, pssh, fmt.Errorf("key not found")
+		}
+		return nil, nil, nil, fmt.Errorf("error fetching key: %w", err)
+	}
+
+	if len(key) == 0 && channel.Keys != nil {
+		return keyId, nil, pssh, fmt.Errorf("key not found")
+	}
+
+	return keyId, key, pssh, nil
 }
