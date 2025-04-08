@@ -1,0 +1,65 @@
+project_name: manifesto
+version: 2
+builds:
+  - id: android
+    goos:
+      - android
+    goarch:
+      - arm64
+    goarm:
+      - 5
+      - 6
+      - 7
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - "-s -w"
+  
+  - id: linux
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - 5
+      - 6
+      - 7
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - "-s -w"
+
+  - id: windows
+    goos:
+      - windows
+    goarch:
+      - arm64
+      - amd64
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - "-s -w"
+
+archives:
+  - formats:
+    - zip
+    name_template: "manifesto_{{.Version}}_{{.Os}}_{{.Arch}}{{if .Arm}}v{{.Arm}}{{end}}"
+    files:
+      - LICENSE.md
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: Diniboy1123
+    name: manifesto
