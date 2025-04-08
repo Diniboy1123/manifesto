@@ -79,7 +79,7 @@ func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs b
 
 		segmentTemplate := &models.SegmentTemplate{
 			Timescale:       ismManifest.TimeScale,
-			Media:           "$RepresentationID$/$Time$/" + smoothToMpdTag(streamIndex.Url),
+			Media:           "$RepresentationID$/$Time$/" + convertSmoothToMpdTag(streamIndex.Url),
 			Initialization:  "$RepresentationID$/init.mp4",
 			SegmentTimeline: &models.SegmentTimeline{S: segmentTimelineSs},
 		}
@@ -100,9 +100,13 @@ func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs b
 				representation.Width = qualityLevel.MaxWidth
 				representation.Height = qualityLevel.MaxHeight
 
+				if qualityLevel.CodecPrivateData == "" {
+					return nil, fmt.Errorf("CodecPrivateData is empty for quality level %d", qualityLevel.Index)
+				}
+
 				spsNALUs, _, err := video.CodecPrivateDataToSPSPPS(qualityLevel.CodecPrivateData)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to parse CodecPrivateData for quality level %d: %w", qualityLevel.Index, err)
 				}
 
 				sps, err := avc.ParseSPSNALUnit(spsNALUs[0], false)
@@ -243,7 +247,10 @@ func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs b
 	return dashManifest, nil
 }
 
-func smoothToMpdTag(path string) string {
-	outPath := strings.ReplaceAll(path, "{bitrate}", "$Bandwidth$")
-	return strings.ReplaceAll(outPath, "{start time}", "$Time$")
+func convertSmoothToMpdTag(path string) string {
+	replacer := strings.NewReplacer(
+		"{bitrate}", "$Bandwidth$",
+		"{start time}", "$Time$",
+	)
+	return replacer.Replace(path)
 }
