@@ -99,6 +99,18 @@ Example config:
     "global_headers": {
         "X-Requested-With": "manifesto"
     },
+    "https_port": 8443,
+    "bogus_domain": "notgonnaexpo.se",
+    "hide_not_found": true,
+    "http_proxy": "socks5h://some@example.com:1080",
+    "https_proxy": "http://another:simple@example.com:8080",
+    "tls_domain_map": [
+        {
+            "domain": "my.domain.tld",
+            "cert": "fullchain.pem",
+            "key": "privkey.pem"
+        }
+    ],
     "users": [
         {
             "username": "admin",
@@ -127,13 +139,22 @@ Example config:
 
 #### Fields
 
-- `http_port`: The port on which the service will listen.
+- `http_port`: The port on which the service will listen. If set to `0` or if omitted, HTTP will be disabled.
+- `https_port`: The port on which the service will listen for HTTPS connections. If set to `0` or if omitted, HTTPS will be disabled.
 - `bind_addr`: Bind address to expose the service to. If set to `127.0.0.1` only local connections will be accepted, if set to `0.0.0.0` all connections are accepted. If set to a specific interface's IP address, only connections coming from that interface will be accepted.
 - `save_dir`: Directory where cached requests will be saved for the `cache_duration` time. The tool deletes all files stored here during each startup, so don't put anything important here. The directory will be created if it doesn't exist.
 - `log_path`: Path to the log file. If not set, only stdout will be used.
 - `allow_subs`: If set to `true`, subtitles will be included in transformed manifest files. Some players like ffmpeg, may behave unpredictably when STPP subtitles are present in the manifest, therefore all subtitles are stripped by default.
 - `cache_duration`: Duration for which the cached requests will be saved. All calls done by the service will be cached for this duration including source manifests. Choose a value wisely. Too less and you end up hammering the source. Too much and you end up with a lot of data on your disk + manifests will serve stale data.
 - `global_headers`: HTTP headers that will be added to all requests. This is useful for authentication or other purposes. The headers are passed as a map of key-value pairs. Not necessary if you don't need any headers.
+- `http_proxy`: Proxy to use for outgoing HTTP traffic. This is useful if you want to route all requests through a proxy. The proxy is passed as a string in the format `protocol://username:password@host:port`. If not set, no proxy will be used. Equivalent to `HTTP_PROXY` environment variable.
+- `https_proxy`: Proxy to use for outgoing HTTPS traffic. This is useful if you want to route all requests through a proxy. The proxy is passed as a string in the format `protocol://username:password@host:port`. If not set, no proxy will be used. Equivalent to `HTTPS_PROXY` environment variable.
+- `tls_domain_map`: List of domains and their corresponding TLS certificates. This is useful if you want to serve multiple domains with different certificates.
+  - `domain`: Domain name to serve the certificate for. If the request's SNI matches this domain, the certificate will be used.
+  - `cert`: Path to the certificate file for a specific domain. The file will be read and used for TLS connections.
+  - `key`: Path to the private key file for a specific domain. The file will be read and used for TLS connections.
+- `bogus_domain`: The service generates a self-signed certificate which will be served on the HTTPS port if no known SNI is given. This ensures that random port scanners won't find out the domain you are hosting on. If not set, the certificate will not contain any subject alternative names.
+- `hide_not_found`: If set to `true`, the service will return 204 No content to all unknown pathes. If set to `false`, regular 404 Not Found will be returned. Also useful against port scanners.
 - `users`: List of users that can access the service. Each user has a `username` and a `token`. The token is used for authentication. If defined, the service will require a token in each call in the path e.g. `/mysecuretoken/stream/...`. If not defined, the service will be open to everyone. Username is only used for logging purposes.
 - `channels`: List of channels that the service will serve.
   - `id`: Unique ID of the channel. This is used in the URL to access the channel.
@@ -155,7 +176,7 @@ And the the playback should start.
 
 ## Why? Why was this built?
 
-I like to follow local sports events and my local TV station uses Smooth Streaming to deliver the content. As long as I had an LG TV, I had no issues accessing the content I am paying for (as they have an official app there), but when I switched to an Android TV I was left with no option to watch the content I am paying for.
+I like to follow local sports events and my local TV station uses Smooth Streaming to deliver the content. As long as I had an LG TV, I had no issues accessing the content (as they have an official app there), but when I switched to an Android TV I was left with no option to watch the content I pay for.
 
 My new Android TV supports PlayReady DRM, which is exactly what the content is protected with, but there is no smooth streaming support there and while Kodi's [inputstream.adaptive](https://github.com/xbmc/inputstream.adaptive) has some degree of support for Smooth Streaming, it is not perfect and won't work with the provider's manifests.
 
@@ -186,14 +207,14 @@ Experience shows that unfortunately not all players are able to play the generat
 Quick comparison table:
 --
 
-| Player                      | Status              | Notes                                                                                           |
-| --------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
-| FFmpeg                      | Unusable | Subtitle requests go into an infinite loop. Playback is stuttery and desync issues are present. |
-| mpv                         | Unusable | Same issue as FFmpeg. Playback won't start before fetching a large amount of segments.          |
-| MX Player on Android        | Unusable | Playback starts, but runs into issues and eventually gives up.                                  |
-| VLC                         | Works perfectly     | Segments are modified by the tool. Playback is smooth and without issues.                       |
-| InputStream Adaptive (Kodi) | Works perfectly     | Playback is smooth and without issues.                                                          |
-| dash.js                     | Works perfectly     | Playback is smooth and without issues. Segments are modified by the tool.                       |
+| Player                      | Status          | Notes                                                                                           |
+| --------------------------- | --------------- | ----------------------------------------------------------------------------------------------- |
+| FFmpeg                      | Unusable        | Subtitle requests go into an infinite loop. Playback is stuttery and desync issues are present. |
+| mpv                         | Unusable        | Same issue as FFmpeg. Playback won't start before fetching a large amount of segments.          |
+| MX Player on Android        | Unusable        | Playback starts, but runs into issues and eventually gives up.                                  |
+| VLC                         | Works perfectly | Segments are modified by the tool. Playback is smooth and without issues.                       |
+| InputStream Adaptive (Kodi) | Works perfectly | Playback is smooth and without issues.                                                          |
+| dash.js                     | Works perfectly | Playback is smooth and without issues. Segments are modified by the tool.                       |
 
 In depth comparison:
 --
