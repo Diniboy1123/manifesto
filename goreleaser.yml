@@ -59,6 +59,15 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^chore:'
+      - '^ci:'
+  use: git
+
 release:
   github:
     owner: Diniboy1123
