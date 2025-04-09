@@ -117,7 +117,7 @@ func DoRequest(method, url string, headers map[string]string) (*http.Response, e
 		req.Header.Set(k, v)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := GetProxyClient().Do(req)
 	if err != nil {
 		setEntryError(url, entry, err)
 		return nil, err

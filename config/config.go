@@ -49,6 +49,13 @@ type Config struct {
 	// If set to true, the server will return a 204 No Content to any request not made
 	// to an existing path.
 	HideNotFound bool `json:"hide_not_found"`
+	// HttpProxy is the HTTP proxy to use for outgoing requests
+	HttpProxy string `json:"http_proxy"`
+	// HttpsProxy is the HTTPS proxy to use for outgoing requests
+	HttpsProxy string `json:"https_proxy"`
+	// NoProxy is a comma-separated list of domains to exclude from proxying
+	// like "localhost,.internal". Optional field.
+	NoProxy string `json:"no_proxy"`
 }
 
 // Channel represents a single channel configuration
