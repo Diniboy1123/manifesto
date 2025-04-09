@@ -34,9 +34,9 @@ func buildChain(handler http.HandlerFunc) http.HandlerFunc {
 func Start() {
 	mux := http.NewServeMux()
 
-	hasUsers := len(config.Get().Users) > 0
+	cfg := config.Get()
 
-	if hasUsers {
+	if len(cfg.Users) > 0 {
 		mux.HandleFunc("GET /{token}/stream/{channelId}/manifest.mpd", buildChain(handlers.DashManifestHandler))
 		mux.HandleFunc("GET /{token}/stream/{channelId}/{qualityId}/init.mp4", buildChain(handlers.InitHandler))
 		mux.HandleFunc("GET /{token}/stream/{channelId}/{qualityId}/{time}/{rest...}", buildChain(handlers.SegmentHandler))
@@ -46,9 +46,13 @@ func Start() {
 		mux.HandleFunc("GET /stream/{channelId}/{qualityId}/{time}/{rest...}", buildChain(handlers.SegmentHandler))
 	}
 
-	if config.Get().HttpPort != 0 {
+	if cfg.HideNotFound {
+		mux.HandleFunc("/", handlers.NotFoundHandler)
+	}
+
+	if cfg.HttpPort != 0 {
 		go func() {
-			host := net.JoinHostPort(config.Get().BindAddr, strconv.Itoa(int(config.Get().HttpPort)))
+			host := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(int(cfg.HttpPort)))
 			log.Printf("manifesto listening on HTTP %s", host)
 			if err := http.ListenAndServe(host, mux); err != nil {
 				log.Fatalf("Error starting server: %v", err)
@@ -58,9 +62,9 @@ func Start() {
 		log.Println("HTTP server is disabled")
 	}
 
-	if config.Get().HttpsPort != 0 {
+	if cfg.HttpsPort != 0 {
 		go func() {
-			addr := net.JoinHostPort(config.Get().BindAddr, strconv.Itoa(int(config.Get().HttpsPort)))
+			addr := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(int(cfg.HttpsPort)))
 			startHTTPSListener(addr, mux)
 		}()
 	} else {

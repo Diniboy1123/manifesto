@@ -46,6 +46,9 @@ type Config struct {
 	// This is used when the client does not provide a valid domain.
 	// Leave it empty to disable
 	BogusDomain string `json:"bogus_domain"`
+	// If set to true, the server will return a 204 No Content to any request not made
+	// to an existing path.
+	HideNotFound bool `json:"hide_not_found"`
 }
 
 // Channel represents a single channel configuration
