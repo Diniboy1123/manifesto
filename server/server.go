@@ -49,14 +49,22 @@ func Start() {
 	if config.Get().HttpPort != 0 {
 		go func() {
 			host := net.JoinHostPort(config.Get().BindAddr, strconv.Itoa(int(config.Get().HttpPort)))
-			log.Printf("manifesto listening on %s", host)
+			log.Printf("manifesto listening on HTTP %s", host)
 			if err := http.ListenAndServe(host, mux); err != nil {
 				log.Fatalf("Error starting server: %v", err)
 			}
 		}()
 	} else {
 		log.Println("HTTP server is disabled")
-		return
+	}
+
+	if config.Get().HttpsPort != 0 {
+		go func() {
+			addr := net.JoinHostPort(config.Get().BindAddr, strconv.Itoa(int(config.Get().HttpsPort)))
+			startHTTPSListener(addr, mux)
+		}()
+	} else {
+		log.Println("HTTPS server is disabled")
 	}
 
 	select {}

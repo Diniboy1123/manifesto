@@ -18,6 +18,8 @@ import (
 type Config struct {
 	// Port for the HTTP server
 	HttpPort uint16 `json:"http_port,omitempty"`
+	// Port for the HTTPS server
+	HttpsPort uint16 `json:"https_port,omitempty"`
 	// Address to bind the server to
 	BindAddr string `json:"bind_addr"`
 	// Directory to save temporary cache files to. Emptied on startup
@@ -37,6 +39,13 @@ type Config struct {
 	// GlobalHeaders is a map of HTTP header names to their values.
 	// Keys represent header names (e.g., "Authorization"), and values represent their corresponding values (e.g., "Bearer token").
 	GlobalHeaders map[string]string `json:"global_headers"`
+	// TLSDomainCertMap is a structure that maps domain names to their TLS certificate and key file paths.
+	// This is used for serving HTTPS requests with different certificates based on the domain.
+	TLSDomainMap []TLSDomainConfig `json:"tls_domain_map"`
+	// BogusDomain is a domain used to generate a self signed certificate.
+	// This is used when the client does not provide a valid domain.
+	// Leave it empty to disable
+	BogusDomain string `json:"bogus_domain"`
 }
 
 // Channel represents a single channel configuration
@@ -81,6 +90,16 @@ type User struct {
 
 // JSONDuration is a custom type for smarter JSON unmarshalling of time.Duration
 type JSONDuration time.Duration
+
+// TLSDomainConfig represents a TLS domain configuration
+type TLSDomainConfig struct {
+	// Domain is the domain name for the TLS certificate
+	Domain string `json:"domain"`
+	// Cert is the path to the TLS certificate file
+	Cert string `json:"cert"`
+	// Key is the path to the TLS key file
+	Key string `json:"key"`
+}
 
 var (
 	// appConfig holds the current configuration
@@ -184,8 +203,8 @@ func WatchConfig() {
 // validateConfig checks if the configuration is valid
 // and returns an error if any required fields are missing or invalid (since JSON deserialization isn't strict)
 func validateConfig(config Config) error {
-	if config.HttpPort == 0 {
-		return fmt.Errorf("http_port must be greater than 0")
+	if config.HttpPort == 0 && config.HttpsPort == 0 {
+		return fmt.Errorf("either http_port or https_port must be greater than 0")
 	}
 	if config.BindAddr == "" {
 		return fmt.Errorf("bind_addr cannot be empty")
@@ -195,6 +214,28 @@ func validateConfig(config Config) error {
 	}
 	if config.CacheDuration.Duration() <= 0 {
 		return fmt.Errorf("cache_duration must be greater than 0")
+	}
+	if len(config.TLSDomainMap) > 0 || config.HttpsPort > 0 {
+		if config.HttpsPort > 0 && len(config.TLSDomainMap) == 0 {
+			return fmt.Errorf("https_port is set, but tls_domain_map must also be provided")
+		}
+		for _, tlsConfig := range config.TLSDomainMap {
+			if tlsConfig.Domain == "" {
+				return fmt.Errorf("tls_domain_map contains an entry with an empty domain")
+			}
+			if tlsConfig.Cert == "" {
+				return fmt.Errorf("tls_domain_map entry for domain %s is missing a cert path", tlsConfig.Domain)
+			}
+			if tlsConfig.Key == "" {
+				return fmt.Errorf("tls_domain_map entry for domain %s is missing a key path", tlsConfig.Domain)
+			}
+			if _, err := os.Stat(tlsConfig.Cert); os.IsNotExist(err) {
+				return fmt.Errorf("tls cert file %s does not exist for domain %s", tlsConfig.Cert, tlsConfig.Domain)
+			}
+			if _, err := os.Stat(tlsConfig.Key); os.IsNotExist(err) {
+				return fmt.Errorf("tls key file %s does not exist for domain %s", tlsConfig.Key, tlsConfig.Domain)
+			}
+		}
 	}
 
 	return nil

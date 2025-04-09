@@ -2,10 +2,19 @@ package utils
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf16"
 
 	"github.com/Diniboy1123/manifesto/config"
@@ -133,4 +142,30 @@ func ExtractKeyInfo(protections []models.SmoothProtectionHeader, channel config.
 	}
 
 	return keyId, key, pssh, nil
+}
+
+func GenerateSelfSignedCert(domain string) tls.Certificate {
+	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: domain,
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		DNSNames:              []string{domain},
+	}
+
+	derBytes, _ := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	keyBytes, _ := x509.MarshalECPrivateKey(priv)
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+
+	cert, _ := tls.X509KeyPair(certPEM, keyPEM)
+	return cert
 }

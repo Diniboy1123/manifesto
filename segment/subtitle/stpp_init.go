@@ -23,7 +23,18 @@ func (s *STPPInitSegment) Generate() (*mp4.InitSegment, error) {
 	init.AddEmptyTrack(s.TimeScale, "subtitle", s.Lang)
 
 	trak := init.Moov.Trak
-	err := trak.SetStppDescriptor("http://www.w3.org/ns/ttml http://www.smpte-ra.org/schemas/2052-1/2010/smpte-tt http://www.w3.org/ns/ttml#metadata  http://www.w3.org/ns/ttml#parameter http://www.w3.org/ns/ttml#styling http://www.w3.org/2001/XMLSchema-instance http://www.smpte-ra.org/schemas/2052-1/2010/smpte-tt http://www.smpte-ra.org/schemas/2052-1/2010/smpte-tt.xsd", "", "")
+	err := trak.SetStppDescriptor(
+		"http://www.w3.org/ns/ttml "+
+			"http://www.smpte-ra.org/schemas/2052-1/2010/smpte-tt "+
+			"http://www.w3.org/ns/ttml#metadata "+
+			"http://www.w3.org/ns/ttml#parameter "+
+			"http://www.w3.org/ns/ttml#styling "+
+			"http://www.w3.org/2001/XMLSchema-instance "+
+			"http://www.smpte-ra.org/schemas/2052-1/2010/smpte-tt "+
+			"http://www.smpte-ra.org/schemas/2052-1/2010/smpte-tt.xsd",
+		"",
+		"",
+	)
 	if err != nil {
 		return nil, err
 	}
