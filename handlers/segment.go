@@ -165,7 +165,7 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var output *bytes.Buffer
+	var output []byte
 	switch streamIndex.Type {
 	case "video":
 		output, err = video.ProcessVideoSegment(bytes.NewBuffer(chunkData), decryptInfo, key, time)
@@ -183,12 +183,9 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", streamIndex.GetMimeType())
+	w.Header().Set("Content-Length", strconv.Itoa(len(output)))
+	w.WriteHeader(http.StatusOK)
 
-	_, err = io.Copy(w, output)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error writing chunk data: %v", err), http.StatusInternalServerError)
-		return
-	}
+	w.Write(output)
 }

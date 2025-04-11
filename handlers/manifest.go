@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/Diniboy1123/manifesto/config"
 	"github.com/Diniboy1123/manifesto/transformers"
@@ -46,13 +47,16 @@ func DashManifestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/dash+xml")
 	mpdXML, err := mpd.Encode()
 	if err != nil {
 		http.Error(w, "Error encoding manifest", http.StatusInternalServerError)
 		log.Printf("Error encoding manifest: %v", err)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/dash+xml")
+	w.Header().Set("Content-Length", strconv.Itoa(len(mpdXML)))
 	w.WriteHeader(http.StatusOK)
+
 	w.Write(mpdXML)
 }

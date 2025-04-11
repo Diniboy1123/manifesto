@@ -16,8 +16,8 @@ import (
 // MP4 file is not fragmented, returning an error in that case.
 //
 // Note: Subtitle decryption is not supported in this implementation.
-func ProcessSubtitleSegment(input *bytes.Buffer, chunkId uint64) (output *bytes.Buffer, err error) {
-	output = bytes.NewBuffer(nil)
+func ProcessSubtitleSegment(input *bytes.Buffer, chunkId uint64) ([]byte, error) {
+	output := bytes.NewBuffer(nil)
 
 	inMp4, err := mp4.DecodeFile(input)
 	if err != nil {
@@ -54,5 +54,6 @@ func ProcessSubtitleSegment(input *bytes.Buffer, chunkId uint64) (output *bytes.
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode segment: %v", err)
 	}
-	return output, nil
+
+	return output.Bytes(), nil
 }
