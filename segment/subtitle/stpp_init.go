@@ -19,8 +19,7 @@ type STPPInitSegment struct {
 //
 // Note: Subtitle encryption is not supported in this implementation.
 func (s *STPPInitSegment) Generate() (*mp4.InitSegment, error) {
-	init := segment.NewBaseInitSegment("audio", s.Lang, s.TimeScale, []string{"iso6", "piff"})
-	init.AddEmptyTrack(s.TimeScale, "subtitle", s.Lang)
+	init := segment.NewBaseInitSegment("subtitle", s.Lang, s.TimeScale, []string{"iso6", "piff"})
 
 	trak := init.Moov.Trak
 	err := trak.SetStppDescriptor(
