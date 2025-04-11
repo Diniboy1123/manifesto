@@ -172,7 +172,11 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 	case "audio":
 		output, err = audio.ProcessAudioSegment(bytes.NewBuffer(chunkData), decryptInfo, key, time)
 	case "text":
-		output, err = subtitle.ProcessSubtitleSegment(bytes.NewBuffer(chunkData), time)
+		var firstSegmentDuration uint32
+		if len(streamIndex.ChunkInfos) > 0 {
+			firstSegmentDuration = uint32(streamIndex.ChunkInfos[0].Duration)
+		}
+		output, err = subtitle.ProcessSubtitleSegment(bytes.NewBuffer(chunkData), time, uint32(streamIndex.TimeScale), firstSegmentDuration)
 	default:
 		http.Error(w, "Unsupported stream type", http.StatusBadRequest)
 		return

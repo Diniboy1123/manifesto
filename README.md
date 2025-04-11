@@ -33,6 +33,7 @@ Manifesto supports repackaging of DRM-protected content without decryption. If d
     - [Track IDs inside segments are always set to 1](#track-ids-inside-segments-are-always-set-to-1)
     - [`tfdt` box is added to segments if missing](#tfdt-box-is-added-to-segments-if-missing)
     - [`DataOffset` in `trun` box is always reset to 0](#dataoffset-in-trun-box-is-always-reset-to-0)
+    - [`sidx` box is added to subtitle segments if present](#sidx-box-is-added-to-subtitle-segments-if-present)
   - [Performance](#performance)
     - [Caching](#caching)
   - [Stand on piracy](#stand-on-piracy)
@@ -144,7 +145,7 @@ Example config:
 - `bind_addr`: Bind address to expose the service to. If set to `127.0.0.1` only local connections will be accepted, if set to `0.0.0.0` all connections are accepted. If set to a specific interface's IP address, only connections coming from that interface will be accepted.
 - `save_dir`: Directory where cached requests will be saved for the `cache_duration` time. The tool deletes all files stored here during each startup, so don't put anything important here. The directory will be created if it doesn't exist.
 - `log_path`: Path to the log file. If not set, only stdout will be used.
-- `allow_subs`: If set to `true`, subtitles will be included in transformed manifest files. Some players like ffmpeg, may behave unpredictably when STPP subtitles are present in the manifest, therefore all subtitles are stripped by default.
+- `allow_subs`: If set to `true`, subtitles will be included in transformed manifest files. By default off, because some providers include subtitle streams, but in reality it's unused.
 - `cache_duration`: Duration for which the cached requests will be saved. All calls done by the service will be cached for this duration including source manifests. Choose a value wisely. Too less and you end up hammering the source. Too much and you end up with a lot of data on your disk + manifests will serve stale data.
 - `global_headers`: HTTP headers that will be added to all requests. This is useful for authentication or other purposes. The headers are passed as a map of key-value pairs. Not necessary if you don't need any headers.
 - `http_proxy`: Proxy to use for outgoing HTTP traffic. This is useful if you want to route all requests through a proxy. The proxy is passed as a string in the format `protocol://username:password@host:port`. If not set, no proxy will be used. Equivalent to `HTTP_PROXY` environment variable.
@@ -197,7 +198,7 @@ This brings us to the first step. Any request made to these manifest endpoints w
 
 As the second step a regular player that plays MPEG-DASH would reach out to is the URL of the init segment. However MSS doesn't have a concept of a pre-served init segment, but it is rather generated on the client side. DASH however needs the init segment, so the tool attempts to generate the init segment on the fly. This is done by parsing various properties from the manifest, most importantly the `CodecPrivateData` field, which usually contains the codec specific information. These init segments are also served back to the client on a per-request basis. Since init segment generation needs to be programmed for each codec, only a few codecs are supported. Currently the tool supports `H264` (`avc1`) for video, `AAC` and `EAC-3` for audio and `STPP` for subtitles. For example I didn't encounter HEVC streams yet, so those are not implemented. If you encounter a codec that is not supported, please open an issue and I will try to implement it.
 
-The third step is the actual segment request. If a player requests a segment, the tool will reach out to the upstream provider and fetch the given segment. This can't be served as-is, because some MP4 boxes need to be altered and removed, so the segments are also parsed, repackaged and served on the fly. For example we replace track IDs to always be `1`, because the generated init segments also always have track ID `1`. Certain players have audio/video desync issues if you don't specify a `tfdt` box, so we add that if missing as well.
+The third step is the actual segment request. If a player requests a segment, the tool will reach out to the upstream provider and fetch the given segment. This can't be served as-is, because some MP4 boxes need to be altered and removed, so the segments are also parsed, repackaged and served on the fly. For example we replace track IDs to always be `1`, because the generated init segments also always have track ID `1`. Certain players have audio/video desync issues if you don't specify a `tfdt` box, so we add that if missing as well. See the [Various hacks applied](#various-hacks-applied) section for details.
 
 With all that, `manifesto` is able to serve a DASH manifest that should be playable without any re-encoding or remuxing.
 
@@ -210,7 +211,7 @@ Quick comparison table:
 
 | Player                      | Status          | Notes                                                                                           |
 | --------------------------- | --------------- | ----------------------------------------------------------------------------------------------- |
-| FFmpeg                      | Unusable        | Subtitle requests go into an infinite loop. Playback is stuttery and desync issues are present. |
+| FFmpeg                      | Unusable        | Even with modifications to segments, playback is stuttery and desync issues are present. |
 | mpv                         | Unusable        | Same issue as FFmpeg. Playback won't start before fetching a large amount of segments.          |
 | MX Player on Android        | Unusable        | Playback starts, but runs into issues and eventually gives up.                                  |
 | VLC                         | Works perfectly | Segments are modified by the tool. Playback is smooth and without issues.                       |
@@ -222,7 +223,7 @@ In depth comparison:
 
 ### FFmpeg
 
-**Unusable**. Both `ffprobe` and `ffplay` go into a seemingly infinite cycle of requests if you have `allow_subs` set to `true`. For some reason, subtitle chunks are requested in an infinite loop. If you set `allow_subs` to `false`, it gets as far as to start playing something, first it starts smooth, but then audio and video go out of sync, you will experience random jumps and stutters. I assume FFmpeg is just not smart enough to rely on `tfdt` boxes or the times inside the manifest, so timestamps are extracted from the actual `mdat` boxes inside the segments which is obviously wrong. After playing livestreams for a longer while, you may also observe that FFmpeg tries to fetch chunks that aren't even available yet on the upstream, so desync issues are definitely present. Unfortunately most players that depend on FFmpeg suffer from the same issue.
+**Unusable**. The audio and video can go out of sync depending on the provider and you may experience random jumps and stutters. I assume FFmpeg is just not smart enough to rely on `tfdt` boxes or the times inside the manifest, so timestamps are extracted from the actual `mdat`/`trun` boxes inside the segments which is wrong at the moment. After playing livestreams for a longer while, you may also observe that FFmpeg tries to fetch chunks that aren't even available yet on the upstream, so desync issues are definitely present. Unfortunately most players that depend on FFmpeg suffer from the same issue.
 
 ### mpv
 
@@ -304,6 +305,10 @@ So I just reset the `DataOffset` to `0` in all `trun` boxes and let mp4ff calcul
 
 All tested segments played this way just fine, so I ended up making this a default behavior. If you encounter a segment that doesn't play this way, please open an issue and I will move this to a config option.
 
+### `sidx` box is added to subtitle segments if present
+
+FFmpeg seemingly panics if `sidx` isn't present in subtitle chunks, which is understandable since it relies on this box for proper playback. Unfortunately, some providers omit the `sidx` box in their segment responses. To address this, a workaround was implemented: the tool uses the duration of the first subtitle segment as a reference value for `SubSegmentDuration`. While this approach may not strictly adhere to standards, it has proven effective in ensuring playback functionality.
+
 ## Performance
 
 The tool is pure Go and doesn't remux anything, therefore it is very lightweight and fast compared to other tools. However it still loads large chunks of data into memory, so it may not be suitable for low-end devices. On the contrary, I am running this on a Raspberry Pi Zero W and it works just fine. Since I would like to keep it that way, I do not have plans to implement FFmpeg based timestamp calculation. It would be nice to have, as that would open up the possibility to support more players, but less resource hungry and faster is more important to me.
@@ -338,3 +343,5 @@ This tool wouldn't exist without the following incredible projects. Please go an
 - [Microsoft Docs](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-sstr/8383f27f-7efe-4c60-832a-387274457251) - The official Smooth Streaming protocol documentation. I used it to figure out how the protocol works and how to parse the manifests. It is surprisingly detailed. [This](https://learn.microsoft.com/en-us/previous-versions/dd318793(v=vs.85)) was also useful to learn, how to parse the `CodecPrivateData` field for AAC audio.
 - [mp4ff](https://github.com/Eyevinn/mp4ff) - Undoubtedly my favorite Go library so far. It's written excellently and has a great API to work with. I use it to parse and generate MP4 boxes. It is also a great source of information as I don't have the money to buy the specs for the MP4 format. Without this project, this tool definitely wouldn't exist. It makes MP4 parsing and generation a breeze. Directly from Go.
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/74e90dd9b8f9c1a5c48a2515126654f4d398d687/yt_dlp/downloader/ism.py#L159) - The `ism.py` file was used to figure out how to parse `avc1` `CodecPrivateData` and extract SPSNALUs and PPSNALUs. It's also a great example on init segment generation, although mp4ff does a much better job at covering the standards and implementing them.
+
+Many thanks to [**@py-snake**](https://github.com/py-snake) who helped me improve STTP subtitle support.

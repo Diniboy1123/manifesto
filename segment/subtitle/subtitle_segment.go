@@ -16,7 +16,7 @@ import (
 // MP4 file is not fragmented, returning an error in that case.
 //
 // Note: Subtitle decryption is not supported in this implementation.
-func ProcessSubtitleSegment(input *bytes.Buffer, chunkId uint64) ([]byte, error) {
+func ProcessSubtitleSegment(input *bytes.Buffer, chunkId uint64, timeScale uint32, segmentDuration uint32) ([]byte, error) {
 	output := bytes.NewBuffer(nil)
 
 	inMp4, err := mp4.DecodeFile(input)
@@ -44,6 +44,44 @@ func ProcessSubtitleSegment(input *bytes.Buffer, chunkId uint64) ([]byte, error)
 			// kinda hacky, because time isn't always equal to chunkId, but it works
 			if !hasTfdt {
 				fragment.Moof.Traf.AddChild(mp4.CreateTfdt(chunkId))
+			}
+
+			var hasSidx bool
+			for _, child := range fragment.Children {
+				if child.Type() == "sidx" {
+					hasSidx = true
+					break
+				}
+			}
+
+			// Apparently the sidx box is required for ffmpeg to process subtitle streams without errors.
+			// The timescale and duration values used here are not ideal, but if the remote end
+			// does not provide these values, we rely on the values defined in the manifest.
+			if !hasSidx && timeScale > 0 && segmentDuration > 0 {
+				// Ensure the sidx box is added as the first child to avoid playback issues in some players.
+				fragment.Children = append([]mp4.Box{
+					&mp4.SidxBox{
+						Version: 1,
+						// ReferenceID corresponds to the hardcoded TrackID.
+						ReferenceID: 1,
+						Timescale:   timeScale,
+						// EarliestPresentationTime is set to a value I observed in working samples.
+						EarliestPresentationTime: 17443164950004000,
+						FirstOffset:              0,
+						SidxRefs: []mp4.SidxRef{
+							{
+								// ReferencedSize is set to 0 as a placeholder, which appears to work in practice (not ideal).
+								ReferencedSize:     0,
+								ReferenceType:      0,
+								SubSegmentDuration: segmentDuration,
+								// StartsWithSAP and SAPType are hardcoded based on observed manifest values.
+								StartsWithSAP: 1,
+								SAPType:       1,
+								SAPDeltaTime:  0,
+							},
+						},
+					},
+				}, fragment.Children...)
 			}
 		}
 
