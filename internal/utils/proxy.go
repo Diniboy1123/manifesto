@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/tls"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -41,8 +42,15 @@ func GetProxyClient() *http.Client {
 		}
 	}
 
+	tlsConfig := &tls.Config{}
+
+	if cfg.TlsClientInsecure {
+		tlsConfig.InsecureSkipVerify = true
+	}
+
 	transport := &http.Transport{
 		Proxy:                 proxyFunc,
+		TLSClientConfig:       tlsConfig,
 		MaxIdleConns:          10,
 		IdleConnTimeout:       30 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,

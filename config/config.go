@@ -56,6 +56,8 @@ type Config struct {
 	// NoProxy is a comma-separated list of domains to exclude from proxying
 	// like "localhost,.internal". Optional field.
 	NoProxy string `json:"no_proxy"`
+	// TlsClientInsecure is a flag to disable TLS verification for outgoing requests and proxy connections.
+	TlsClientInsecure bool `json:"tls_client_insecure"`
 }
 
 // Channel represents a single channel configuration

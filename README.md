@@ -149,6 +149,7 @@ Example config:
 - `global_headers`: HTTP headers that will be added to all requests. This is useful for authentication or other purposes. The headers are passed as a map of key-value pairs. Not necessary if you don't need any headers.
 - `http_proxy`: Proxy to use for outgoing HTTP traffic. This is useful if you want to route all requests through a proxy. The proxy is passed as a string in the format `protocol://username:password@host:port`. If not set, no proxy will be used. Equivalent to `HTTP_PROXY` environment variable.
 - `https_proxy`: Proxy to use for outgoing HTTPS traffic. This is useful if you want to route all requests through a proxy. The proxy is passed as a string in the format `protocol://username:password@host:port`. If not set, no proxy will be used. Equivalent to `HTTPS_PROXY` environment variable.
+- `tls_client_insecure`: If set to `true`, the client won't check for TLS certificate validity for outgoing requests and proxy connections. This is useful if you want to connect to a server with a self-signed certificate or if some provider comes with misconfigured/expired TLS certs.
 - `tls_domain_map`: List of domains and their corresponding TLS certificates. This is useful if you want to serve multiple domains with different certificates.
   - `domain`: Domain name to serve the certificate for. If the request's SNI matches this domain, the certificate will be used.
   - `cert`: Path to the certificate file for a specific domain. The file will be read and used for TLS connections.
