@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Diniboy1123/manifesto/config"
 	"github.com/Diniboy1123/manifesto/internal/utils"
 	"github.com/Diniboy1123/manifesto/models"
 	"github.com/Diniboy1123/manifesto/segment/video"
@@ -42,7 +43,7 @@ func GetSmoothManifest(url string) (*models.SmoothStream, error) {
 // The generated DASH manifest is structured according to the DASH-IF specifications, including necessary attributes such as
 // availability start time, publish time, and period information.
 // The function also sets the broadcast type based on whether the manifest is live or static.
-func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs bool) (*models.MPD, error) {
+func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs bool, channel config.Channel) (*models.MPD, error) {
 	playreadyProtectionData := ismManifest.GetProtectionHeaderForSystemId(mp4.UUIDPlayReady)
 
 	var psshData string
@@ -228,6 +229,10 @@ func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs b
 		UTCTiming: &models.UTCTiming{
 			SchemeIdUri: "urn:mpeg:dash:utc:direct:2014",
 			Value:       time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+		},
+		ProgramInformation: &models.ProgramInformation{
+			Title:     channel.Name,
+			Copyright: "Served by manifesto",
 		},
 	}
 

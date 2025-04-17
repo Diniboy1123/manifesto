@@ -19,22 +19,23 @@ type UTCTiming struct {
 }
 
 type MPD struct {
-	XMLNS                      string        `xml:"xmlns,attr"`
-	Profiles                   string        `xml:"profiles,attr"`
-	XMLNSCommonEncryption      string        `xml:"xmlns:cenc,attr,omitempty"`
-	XMLNSPlayReady             string        `xml:"xmlns:mspr,attr,omitempty"`
-	Type                       string        `xml:"type,attr"`
-	MinBufferTime              *xsd.Duration `xml:"minBufferTime,attr"`
-	AvailabilityStartTime      string        `xml:"availabilityStartTime,attr"`
-	MinimumUpdatePeriod        *xsd.Duration `xml:"minimumUpdatePeriod,attr"`
-	PublishTime                string        `xml:"publishTime,attr"`
-	TimeShiftBufferDepth       *xsd.Duration `xml:"timeShiftBufferDepth,attr"`
-	AvailabilityEndTime        string        `xml:"availabilityEndTime,attr,omitempty"`
-	MediaPresentationDuration  *xsd.Duration `xml:"mediaPresentationDuration,attr"`
-	SuggestedPresentationDelay *xsd.Duration `xml:"suggestedPresentationDelay,attr"`
-	BaseURL                    []*BaseURL    `xml:"BaseURL,omitempty"`
-	Period                     []*Period     `xml:"Period,omitempty"`
-	UTCTiming                  *UTCTiming    `xml:"UTCTiming,omitempty"`
+	XMLNS                      string              `xml:"xmlns,attr"`
+	Profiles                   string              `xml:"profiles,attr"`
+	XMLNSCommonEncryption      string              `xml:"xmlns:cenc,attr,omitempty"`
+	XMLNSPlayReady             string              `xml:"xmlns:mspr,attr,omitempty"`
+	Type                       string              `xml:"type,attr"`
+	MinBufferTime              *xsd.Duration       `xml:"minBufferTime,attr"`
+	AvailabilityStartTime      string              `xml:"availabilityStartTime,attr"`
+	MinimumUpdatePeriod        *xsd.Duration       `xml:"minimumUpdatePeriod,attr"`
+	PublishTime                string              `xml:"publishTime,attr"`
+	TimeShiftBufferDepth       *xsd.Duration       `xml:"timeShiftBufferDepth,attr"`
+	AvailabilityEndTime        string              `xml:"availabilityEndTime,attr,omitempty"`
+	MediaPresentationDuration  *xsd.Duration       `xml:"mediaPresentationDuration,attr"`
+	SuggestedPresentationDelay *xsd.Duration       `xml:"suggestedPresentationDelay,attr"`
+	ProgramInformation         *ProgramInformation `xml:"ProgramInformation,omitempty"`
+	BaseURL                    []*BaseURL          `xml:"BaseURL,omitempty"`
+	Period                     []*Period           `xml:"Period,omitempty"`
+	UTCTiming                  *UTCTiming          `xml:"UTCTiming,omitempty"`
 }
 
 type BaseURL struct {
@@ -128,6 +129,14 @@ type Pro struct {
 type Pssh struct {
 	XMLNS string `xml:"xmlns:cenc,attr"`
 	Data  string `xml:",chardata"`
+}
+
+type ProgramInformation struct {
+	Title              string `xml:"Title,omitempty"`
+	Source             string `xml:"Source,omitempty"`
+	Copyright          string `xml:"Copyright,omitempty"`
+	Lang               string `xml:"lang,attr,omitempty"`
+	MoreInformationURL string `xml:"moreInformationURL,attr,omitempty"`
 }
 
 var emptyElementRE = regexp.MustCompile(`></[A-Za-z]+>`)

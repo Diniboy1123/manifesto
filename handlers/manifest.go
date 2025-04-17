@@ -40,7 +40,7 @@ func DashManifestHandler(w http.ResponseWriter, r *http.Request) {
 		hasKeys = true
 	}
 
-	mpd, err := transformers.SmoothToDashManifest(smoothStream, hasKeys, config.Get().AllowSubs)
+	mpd, err := transformers.SmoothToDashManifest(smoothStream, hasKeys, config.Get().AllowSubs, channel)
 	if err != nil {
 		http.Error(w, "Error transforming manifest", http.StatusInternalServerError)
 		log.Printf("Error transforming manifest: %v", err)
