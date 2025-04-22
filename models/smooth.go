@@ -80,10 +80,17 @@ func NewSmoothStreamError(err string) *SmoothStreamError {
 func NewSmoothStream(r io.Reader) (*SmoothStream, error) {
 	var ss SmoothStream
 	decoder := xml.NewDecoder(r)
+
 	err := decoder.Decode(&ss)
 	if err != nil {
 		return nil, err
 	}
+
+	if ss.TimeScale == 0 {
+		// Default time scale according to MS docs
+		ss.TimeScale = 10000000
+	}
+
 	return &ss, nil
 }
 
