@@ -26,7 +26,7 @@ type MPD struct {
 	Type                       string              `xml:"type,attr"`
 	MinBufferTime              *xsd.Duration       `xml:"minBufferTime,attr"`
 	AvailabilityStartTime      string              `xml:"availabilityStartTime,attr"`
-	MinimumUpdatePeriod        *xsd.Duration       `xml:"minimumUpdatePeriod,attr"`
+	MinimumUpdatePeriod        *xsd.Duration       `xml:"minimumUpdatePeriod,attr,omitempty"`
 	PublishTime                string              `xml:"publishTime,attr"`
 	TimeShiftBufferDepth       *xsd.Duration       `xml:"timeShiftBufferDepth,attr"`
 	AvailabilityEndTime        string              `xml:"availabilityEndTime,attr,omitempty"`

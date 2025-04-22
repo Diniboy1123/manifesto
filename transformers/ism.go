@@ -220,8 +220,6 @@ func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs b
 		Type:     broadcastType,
 		Profiles: "urn:mpeg:dash:profile:isoff-live:2011",
 		// TODO: don't hardcode
-		MinimumUpdatePeriod: &xsd.Duration{Seconds: 2},
-		// TODO: don't hardcode
 		MinBufferTime:         &xsd.Duration{Seconds: 2},
 		AvailabilityStartTime: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02T15:04:05Z"),
 		PublishTime:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
@@ -240,8 +238,12 @@ func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs b
 		dashManifest.MediaPresentationDuration = &xsd.Duration{Seconds: int64(ismManifest.Duration / 10000000)}
 	}
 
-	if ismManifest.IsLive && ismManifest.DVRWindowLength > 0 {
-		dashManifest.TimeShiftBufferDepth = &xsd.Duration{Seconds: ismManifest.DVRWindowLength / 10000000}
+	if ismManifest.IsLive {
+		dashManifest.MinimumUpdatePeriod = &xsd.Duration{Seconds: 2}
+
+		if ismManifest.DVRWindowLength > 0 {
+			dashManifest.TimeShiftBufferDepth = &xsd.Duration{Seconds: ismManifest.DVRWindowLength / 10000000}
+		}
 	}
 
 	if !hasKeys && playreadyProtectionData != nil {
