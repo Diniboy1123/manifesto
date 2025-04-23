@@ -20,13 +20,19 @@ func ChannelMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		groupId := r.PathValue("groupId")
+		if groupId == "" {
+			http.Error(w, "Group ID not found", http.StatusBadRequest)
+			return
+		}
+
 		channelId := r.PathValue("channelId")
 		if channelId == "" {
 			http.Error(w, "Channel ID not found", http.StatusBadRequest)
 			return
 		}
 
-		channel, ok := config.Get().GetChannel(channelId)
+		channel, ok := config.Get().GetChannel(groupId, channelId)
 		if !ok {
 			http.Error(w, "Channel not found", http.StatusNotFound)
 			return

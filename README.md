@@ -118,7 +118,8 @@ Example config:
             "token": "VERYSECUREHOPEFULLYRANDOMTOKEN"
         }
     ],
-    "channels": [
+    "channels": {
+      "testing": [
         {
             "id": "magentatest",
             "source_type": "ism",
@@ -135,6 +136,7 @@ Example config:
             "keys": ["6f651ae1dbe44434bcb4690d1564c41c:88da852ae4fa2e1e36aeb2d5c94997b1"]
         }
     ]
+  }
 }
 ```
 
@@ -158,7 +160,7 @@ Example config:
 - `bogus_domain`: The service generates a self-signed certificate which will be served on the HTTPS port if no known SNI is given. This ensures that random port scanners won't find out the domain you are hosting on. If not set, the certificate will not contain any subject alternative names.
 - `hide_not_found`: If set to `true`, the service will return 204 No content to all unknown pathes. If set to `false`, regular 404 Not Found will be returned. Also useful against port scanners.
 - `users`: List of users that can access the service. Each user has a `username` and a `token`. The token is used for authentication. If defined, the service will require a token in each call in the path e.g. `/mysecuretoken/stream/...`. If not defined, the service will be open to everyone. Username is only used for logging purposes.
-- `channels`: List of channels that the service will serve.
+- `channels`: Object that maps groups to their respective channels. Each group can include multiple channels, allowing for organized management of streaming sources.
   - `id`: Unique ID of the channel. This is used in the URL to access the channel.
   - `source_type`: Type of the channel. Currently only `ism` is supported and the field is unused. Please set it regardless in case the tool is extended to support other formats in the future.
   - `destination_type`: Type of the destination manifest. Currently only `mpd` is supported and the field is unused. Please set it regardless in case the tool is extended to support other formats in the future.
@@ -171,7 +173,7 @@ Example config:
 If you added the `magentatest` example and the service is running on `localhost:8080`, you can run for example [VLC](https://www.videolan.org/vlc/) simply:
 
 ```shell
-vlc http://localhost:8080/stream/magentatest/manifest.mpd
+vlc http://localhost:8080/stream/testing/magentatest/manifest.mpd
 ```
 
 And the the playback should start.
@@ -191,7 +193,7 @@ This tool was built to fill the gap.
 It does three things. Let's say you have a `magentatest` channel defined in the config and you have the service bound to port `8080`. This will result in a URL like this:
 
 ```
-http://localhost:8080/stream/magentatest/manifest.mpd
+http://localhost:8080/stream/testing/magentatest/manifest.mpd
 ```
 
 This brings us to the first step. Any request made to these manifest endpoints will result in a request to the upstream provider to fetch the MSS manifest, which is then cached, parsed and transformed to a DASH manifest. The code tries to port all important fields and supports multiple resolutions, audio tracks and subtitles. While most properties are kept, init segments and chunk URLs are hijacked to point to the local machine, so it can serve those requests in the future as well. The manifest is then served to the client.
@@ -209,14 +211,14 @@ Experience shows that unfortunately not all players are able to play the generat
 Quick comparison table:
 --
 
-| Player                      | Status          | Notes                                                                                           |
-| --------------------------- | --------------- | ----------------------------------------------------------------------------------------------- |
+| Player                      | Status          | Notes                                                                                    |
+| --------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
 | FFmpeg                      | Unusable        | Even with modifications to segments, playback is stuttery and desync issues are present. |
-| mpv                         | Unusable        | Same issue as FFmpeg. Playback won't start before fetching a large amount of segments.          |
-| MX Player on Android        | Unusable        | Playback starts, but runs into issues and eventually gives up.                                  |
-| VLC                         | Works perfectly | Segments are modified by the tool. Playback is smooth and without issues.                       |
-| InputStream Adaptive (Kodi) | Works perfectly | Playback is smooth and without issues.                                                          |
-| dash.js                     | Works perfectly | Playback is smooth and without issues. Segments are modified by the tool.                       |
+| mpv                         | Unusable        | Same issue as FFmpeg. Playback won't start before fetching a large amount of segments.   |
+| MX Player on Android        | Unusable        | Playback starts, but runs into issues and eventually gives up.                           |
+| VLC                         | Works perfectly | Segments are modified by the tool. Playback is smooth and without issues.                |
+| InputStream Adaptive (Kodi) | Works perfectly | Playback is smooth and without issues.                                                   |
+| dash.js                     | Works perfectly | Playback is smooth and without issues. Segments are modified by the tool.                |
 
 In depth comparison:
 --

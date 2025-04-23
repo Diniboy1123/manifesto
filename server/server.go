@@ -37,13 +37,13 @@ func Start() {
 	cfg := config.Get()
 
 	if len(cfg.Users) > 0 {
-		mux.HandleFunc("GET /{token}/stream/{channelId}/manifest.mpd", buildChain(handlers.DashManifestHandler))
-		mux.HandleFunc("GET /{token}/stream/{channelId}/{qualityId}/init.mp4", buildChain(handlers.InitHandler))
-		mux.HandleFunc("GET /{token}/stream/{channelId}/{qualityId}/{time}/{rest...}", buildChain(handlers.SegmentHandler))
+		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/manifest.mpd", buildChain(handlers.DashManifestHandler))
+		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/{qualityId}/init.mp4", buildChain(handlers.InitHandler))
+		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/{qualityId}/{time}/{rest...}", buildChain(handlers.SegmentHandler))
 	} else {
-		mux.HandleFunc("GET /stream/{channelId}/manifest.mpd", buildChain(handlers.DashManifestHandler))
-		mux.HandleFunc("GET /stream/{channelId}/{qualityId}/init.mp4", buildChain(handlers.InitHandler))
-		mux.HandleFunc("GET /stream/{channelId}/{qualityId}/{time}/{rest...}", buildChain(handlers.SegmentHandler))
+		mux.HandleFunc("GET /stream/{groupId}/{channelId}/manifest.mpd", buildChain(handlers.DashManifestHandler))
+		mux.HandleFunc("GET /stream/{groupId}/{channelId}/{qualityId}/init.mp4", buildChain(handlers.InitHandler))
+		mux.HandleFunc("GET /stream/{groupId}/{channelId}/{qualityId}/{time}/{rest...}", buildChain(handlers.SegmentHandler))
 	}
 
 	if cfg.HideNotFound {

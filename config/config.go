@@ -24,9 +24,9 @@ type Config struct {
 	BindAddr string `json:"bind_addr"`
 	// Directory to save temporary cache files to. Emptied on startup
 	SaveDir string `json:"save_dir"`
-	// List of channels
-	Channels []Channel `json:"channels"`
-	// Map of channels for faster lookups by ID
+	// List of channels by group name
+	Channels map[string][]Channel `json:"channels"`
+	// Map of channels for faster lookups by ID (groupName/channelId)
 	channelMap map[string]Channel
 	// Whether to serve subtitles in manifest requests (ffmpeg gets stuck with stpp subtitles)
 	AllowSubs bool `json:"allow_subs"`
@@ -158,8 +158,11 @@ func reloadConfig() error {
 	configMutex.Lock()
 	appConfig = newConfig
 	appConfig.channelMap = make(map[string]Channel)
-	for _, ch := range appConfig.Channels {
-		appConfig.channelMap[ch.Id] = ch
+	for groupName, channelList := range appConfig.Channels {
+		for _, ch := range channelList {
+			key := fmt.Sprintf("%s/%s", groupName, ch.Id)
+			appConfig.channelMap[key] = ch
+		}
 	}
 	ConfigLoaded = true
 	configMutex.Unlock()
@@ -329,8 +332,9 @@ func parseKey(key string) (keyID []byte, keyData []byte, err error) {
 	return keyID, keyData, nil
 }
 
-// GetChannel retrieves a channel by its ID from the configuration
-func (c Config) GetChannel(id string) (Channel, bool) {
-	channel, exists := c.channelMap[id]
+// GetChannel retrieves a channel by group and ID
+func (c Config) GetChannel(group, id string) (Channel, bool) {
+	key := fmt.Sprintf("%s/%s", group, id)
+	channel, exists := c.channelMap[key]
 	return channel, exists
 }
