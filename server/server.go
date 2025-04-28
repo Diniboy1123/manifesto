@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/Diniboy1123/manifesto/config"
 	"github.com/Diniboy1123/manifesto/handlers"
@@ -60,12 +61,19 @@ func Start() {
 	middleware.InitLogger(ctx)
 	defer middleware.ShutdownLogger()
 
+	var servers []*http.Server
+
 	if cfg.HttpPort != 0 {
+		addr := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(int(cfg.HttpPort)))
+		srv := &http.Server{
+			Addr:    addr,
+			Handler: mux,
+		}
+		servers = append(servers, srv)
 		go func() {
-			host := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(int(cfg.HttpPort)))
-			log.Printf("manifesto listening on HTTP %s", host)
-			if err := http.ListenAndServe(host, mux); err != nil {
-				log.Fatalf("Error starting server: %v", err)
+			log.Printf("manifesto listening on HTTP %s", addr)
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("HTTP server error: %v", err)
 			}
 		}()
 	} else {
@@ -73,13 +81,31 @@ func Start() {
 	}
 
 	if cfg.HttpsPort != 0 {
-		go func() {
-			addr := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(int(cfg.HttpsPort)))
-			startHTTPSListener(addr, mux)
-		}()
+		addr := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(int(cfg.HttpsPort)))
+		srv := &http.Server{
+			Addr:    addr,
+			Handler: mux,
+		}
+		servers = append(servers, srv)
+		go func(srv *http.Server) {
+			log.Printf("manifesto listening on HTTPS %s", addr)
+			startHTTPSListener(srv)
+		}(srv)
 	} else {
 		log.Println("HTTPS server is disabled")
 	}
 
-	select {}
+	<-ctx.Done()
+	log.Println("Shutting down servers...")
+
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for _, srv := range servers {
+		if err := srv.Shutdown(ctxShutdown); err != nil {
+			log.Printf("Error shutting down server: %v", err)
+		}
+	}
+
+	log.Println("All servers shut down cleanly")
 }

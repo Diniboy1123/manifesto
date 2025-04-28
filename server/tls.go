@@ -36,16 +36,18 @@ func getTLSConfig(certMap []config.TLSDomainConfig, bogusDomain string) *tls.Con
 	}
 }
 
-func startHTTPSListener(addr string, handler http.Handler) {
+func startHTTPSListener(srv *http.Server) {
 	cfg := config.Get()
 	tlsCfg := getTLSConfig(cfg.TLSDomainMap, cfg.BogusDomain)
 
-	listener, err := tls.Listen("tcp", addr, tlsCfg)
+	listener, err := tls.Listen("tcp", srv.Addr, tlsCfg)
 	if err != nil {
-		log.Fatalf("Failed to start TLS listener on %s: %v", addr, err)
+		log.Fatalf("Failed to start HTTPS listener: %v", err)
 	}
-	log.Printf("manifesto listening on HTTPS %s", addr)
-	if err := http.Serve(listener, handler); err != nil {
+
+	log.Printf("manifesto listening on HTTPS %s", srv.Addr)
+
+	if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("HTTPS server error: %v", err)
 	}
 }
