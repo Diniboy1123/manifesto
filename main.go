@@ -19,6 +19,7 @@ func main() {
 	}
 
 	utils.CleanCacheDir()
+	utils.StartCleanupLoop()
 	config.WatchConfig()
 	server.Start()
 }
