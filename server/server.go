@@ -1,10 +1,14 @@
 package server
 
 import (
+	"context"
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
 	"github.com/Diniboy1123/manifesto/config"
 	"github.com/Diniboy1123/manifesto/handlers"
@@ -32,9 +36,9 @@ func buildChain(handler http.HandlerFunc) http.HandlerFunc {
 // The function also checks if any users are configured and sets up the routes accordingly.
 // If no users are configured, the routes will not require authentication.
 func Start() {
-	mux := http.NewServeMux()
-
 	cfg := config.Get()
+
+	mux := http.NewServeMux()
 
 	if len(cfg.Users) > 0 {
 		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/manifest.mpd", buildChain(handlers.DashManifestHandler))
@@ -49,6 +53,12 @@ func Start() {
 	if cfg.HideNotFound {
 		mux.HandleFunc("/", handlers.NotFoundHandler)
 	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	middleware.InitLogger(ctx)
+	defer middleware.ShutdownLogger()
 
 	if cfg.HttpPort != 0 {
 		go func() {
