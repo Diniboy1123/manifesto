@@ -45,8 +45,6 @@ func startHTTPSListener(srv *http.Server) {
 		log.Fatalf("Failed to start HTTPS listener: %v", err)
 	}
 
-	log.Printf("manifesto listening on HTTPS %s", srv.Addr)
-
 	if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("HTTPS server error: %v", err)
 	}
