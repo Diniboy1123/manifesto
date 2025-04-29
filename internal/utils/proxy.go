@@ -42,7 +42,9 @@ func GetProxyClient() *http.Client {
 		}
 	}
 
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{
+		NextProtos: []string{"h2", "http/1.1"},
+	}
 
 	if cfg.TlsClientInsecure {
 		tlsConfig.InsecureSkipVerify = true
@@ -51,7 +53,7 @@ func GetProxyClient() *http.Client {
 	transport := &http.Transport{
 		Proxy:                 proxyFunc,
 		TLSClientConfig:       tlsConfig,
-		MaxIdleConns:          10,
+		MaxIdleConns:          30,
 		IdleConnTimeout:       30 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,

@@ -33,6 +33,7 @@ func getTLSConfig(certMap []config.TLSDomainConfig, bogusDomain string) *tls.Con
 			return &bogusCert, nil
 		},
 		MinVersion: tls.VersionTLS12,
+		NextProtos: []string{"h2", "http/1.1"},
 	}
 }
 
