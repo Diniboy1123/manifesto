@@ -70,24 +70,17 @@ func DoRequest(method, url string, headers map[string]string) (*http.Response, e
 	if entryAny, found := cache.Load(url); found {
 		entry := entryAny.(*cacheEntry)
 
-		if time.Since(entry.timestamp) >= cacheDuration {
-			// Cache expired, trigger a fresh download
-			entry.refCount++
-			<-entry.ready
-			if entry.err != nil {
-				return nil, entry.err
-			}
-
-			os.Remove(entry.filePath)
-			return fetchAndCacheNewResponse(method, url, headers, entry)
-		}
-
-		// Cache is valid
-		entry.refCount++
 		<-entry.ready
-		if entry.err != nil {
-			return nil, entry.err
+
+		if entry.err != nil || time.Since(entry.timestamp) >= cacheDuration {
+			cache.Delete(url)
+			if entry.filePath != "" {
+				_ = os.Remove(entry.filePath)
+			}
+			return fetchAndCacheNewResponse(method, url, headers, nil)
 		}
+
+		entry.refCount++
 		return readResponseFromFile(entry.filePath, url), nil
 	}
 
@@ -174,14 +167,11 @@ func fetchAndCacheNewResponse(method, url string, headers map[string]string, ent
 func setEntryError(url string, entry *cacheEntry, err error) {
 	if entry != nil {
 		entry.err = err
-		select {
-		case entry.ready <- struct{}{}:
-		default:
-			entry.once.Do(func() {
-				close(entry.ready)
-			})
-		}
 		cache.Delete(url)
+
+		entry.once.Do(func() {
+			close(entry.ready)
+		})
 
 		if entry.filePath != "" {
 			_ = os.Remove(entry.filePath)
