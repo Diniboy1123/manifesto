@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Diniboy1123/manifesto/config"
 	"github.com/Diniboy1123/manifesto/transformers"
@@ -28,18 +30,21 @@ func DashManifestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	manifestFetchStartTime := time.Now()
 	smoothStream, err := transformers.GetSmoothManifest(channel.Url)
 	if err != nil {
 		http.Error(w, "Error fetching manifest", http.StatusInternalServerError)
 		log.Printf("Error fetching manifest: %v", err)
 		return
 	}
+	manifestFetchTook := time.Since(manifestFetchStartTime)
 
 	var hasKeys bool
 	if channel.Keys != nil {
 		hasKeys = true
 	}
 
+	manifestTransformStartTime := time.Now()
 	mpd, err := transformers.SmoothToDashManifest(smoothStream, hasKeys, config.Get().AllowSubs, channel)
 	if err != nil {
 		http.Error(w, "Error transforming manifest", http.StatusInternalServerError)
@@ -53,9 +58,19 @@ func DashManifestHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error encoding manifest: %v", err)
 		return
 	}
+	manifestTransformTook := time.Since(manifestTransformStartTime)
+
+	reqStartTime := r.Context().Value("reqStartTime").(time.Time)
+	reqTook := time.Since(reqStartTime)
 
 	w.Header().Set("Content-Type", "application/dash+xml")
 	w.Header().Set("Content-Length", strconv.Itoa(len(mpdXML)))
+	w.Header().Set("Server-Timing", fmt.Sprintf(
+		"manifest-fetch;dur=%.3f,manifest-transform;dur=%.3f,total;dur=%.3f",
+		manifestFetchTook.Seconds()*1000,
+		manifestTransformTook.Seconds()*1000,
+		reqTook.Seconds()*1000,
+	))
 	w.WriteHeader(http.StatusOK)
 
 	w.Write(mpdXML)

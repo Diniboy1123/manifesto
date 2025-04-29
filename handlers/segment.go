@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Diniboy1123/manifesto/config"
 	"github.com/Diniboy1123/manifesto/internal/utils"
@@ -53,7 +54,7 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No time specified", http.StatusBadRequest)
 		return
 	}
-	time, err := strconv.ParseUint(timeStr, 10, 64)
+	segmentTime, err := strconv.ParseUint(timeStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid time format", http.StatusBadRequest)
 		return
@@ -76,11 +77,13 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	manifestFetchStartTime := time.Now()
 	smoothStream, err := transformers.GetSmoothManifest(channel.Url)
 	if err != nil {
 		http.Error(w, "Error fetching manifest", http.StatusInternalServerError)
 		return
 	}
+	manifestFetchTook := time.Since(manifestFetchStartTime)
 
 	streamIndex, err := smoothStream.GetStreamIndexByNameOrType(streamIndexStr)
 	if err != nil {
@@ -114,6 +117,7 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		baseSegment.Pssh = pssh
 	}
 
+	initGenStartTime := time.Now()
 	var decryptInfo mp4.DecryptInfo
 	switch streamIndex.Type {
 	case "video":
@@ -142,17 +146,20 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Error generating init segment: %v", err), http.StatusInternalServerError)
 		return
 	}
+	initGenTook := time.Since(initGenStartTime)
 
 	// fetch channel.Url minus the last part of the path + rest
 	chunkBase := channel.Url[:strings.LastIndex(channel.Url, "/")+1]
 	chunkUrl := chunkBase + rest
 
+	chunkFetchStartTime := time.Now()
 	chunkReq, err := utils.DoRequest("GET", chunkUrl, nil)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error fetching chunk: %v", err), http.StatusInternalServerError)
 		return
 	}
 	defer chunkReq.Body.Close()
+	chunkFetchTook := time.Since(chunkFetchStartTime)
 
 	if chunkReq.StatusCode != http.StatusOK {
 		http.Error(w, fmt.Sprintf("Error fetching chunk: %s", chunkReq.Status), http.StatusInternalServerError)
@@ -165,18 +172,19 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	segmentProcessStartTime := time.Now()
 	var output []byte
 	switch streamIndex.Type {
 	case "video":
-		output, err = video.ProcessVideoSegment(bytes.NewBuffer(chunkData), decryptInfo, key, time)
+		output, err = video.ProcessVideoSegment(bytes.NewBuffer(chunkData), decryptInfo, key, segmentTime)
 	case "audio":
-		output, err = audio.ProcessAudioSegment(bytes.NewBuffer(chunkData), decryptInfo, key, time)
+		output, err = audio.ProcessAudioSegment(bytes.NewBuffer(chunkData), decryptInfo, key, segmentTime)
 	case "text":
 		var firstSegmentDuration uint32
 		if len(streamIndex.ChunkInfos) > 0 {
 			firstSegmentDuration = uint32(streamIndex.ChunkInfos[0].Duration)
 		}
-		output, err = subtitle.ProcessSubtitleSegment(bytes.NewBuffer(chunkData), time, uint32(streamIndex.TimeScale), firstSegmentDuration)
+		output, err = subtitle.ProcessSubtitleSegment(bytes.NewBuffer(chunkData), segmentTime, uint32(streamIndex.TimeScale), firstSegmentDuration)
 	default:
 		http.Error(w, "Unsupported stream type", http.StatusBadRequest)
 		return
@@ -186,9 +194,21 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Error processing segment: %v", err), http.StatusInternalServerError)
 		return
 	}
+	segmentProcessTook := time.Since(segmentProcessStartTime)
+
+	reqStartTime := r.Context().Value("reqStartTime").(time.Time)
+	reqTook := time.Since(reqStartTime)
 
 	w.Header().Set("Content-Type", streamIndex.GetMimeType())
 	w.Header().Set("Content-Length", strconv.Itoa(len(output)))
+	w.Header().Set("Server-Timing", fmt.Sprintf(
+		"manifest-fetch;dur=%.3f,init-gen;dur=%.3f,chunk-fetch;dur=%.3f,segment-process;dur=%.3f,total;dur=%.3f",
+		manifestFetchTook.Seconds()*1000,
+		initGenTook.Seconds()*1000,
+		chunkFetchTook.Seconds()*1000,
+		segmentProcessTook.Seconds()*1000,
+		reqTook.Seconds()*1000,
+	))
 	w.WriteHeader(http.StatusOK)
 
 	w.Write(output)

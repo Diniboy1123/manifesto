@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Diniboy1123/manifesto/config"
 	"github.com/Diniboy1123/manifesto/internal/utils"
@@ -57,11 +58,13 @@ func InitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	manifestFetchStartTime := time.Now()
 	smoothStream, err := transformers.GetSmoothManifest(channel.Url)
 	if err != nil {
 		http.Error(w, "Error fetching manifest", http.StatusInternalServerError)
 		return
 	}
+	manifestFetchTook := time.Since(manifestFetchStartTime)
 
 	streamIndex, err := smoothStream.GetStreamIndexByNameOrType(streamIndexStr)
 	if err != nil {
@@ -95,6 +98,7 @@ func InitHandler(w http.ResponseWriter, r *http.Request) {
 		baseSegment.Pssh = pssh
 	}
 
+	initGenStartTime := time.Now()
 	var initSegment *mp4.InitSegment
 	switch streamIndex.Type {
 	case "video":
@@ -130,9 +134,19 @@ func InitHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Error generating init segment: %v", err), http.StatusInternalServerError)
 		return
 	}
+	initGenTook := time.Since(initGenStartTime)
+
+	reqStartTime := r.Context().Value("reqStartTime").(time.Time)
+	reqTook := time.Since(reqStartTime)
 
 	w.Header().Set("Content-Type", streamIndex.GetMimeType())
 	w.Header().Set("Content-Disposition", "attachment; filename=init.mp4")
+	w.Header().Set("Server-Timing", fmt.Sprintf(
+		"manifest-fetch;dur=%.3f,init-gen;dur=%.3f,total;dur=%.3f",
+		manifestFetchTook.Seconds()*1000,
+		initGenTook.Seconds()*1000,
+		reqTook.Seconds()*1000,
+	))
 	w.WriteHeader(http.StatusOK)
 	initSegment.Encode(w)
 }
