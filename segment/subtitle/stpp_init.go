@@ -30,7 +30,9 @@ func (s *STPPInitSegment) Generate() (*mp4.InitSegment, error) {
 			"http://www.w3.org/ns/ttml#styling "+
 			"http://www.w3.org/2001/XMLSchema-instance "+
 			"http://www.smpte-ra.org/schemas/2052-1/2010/smpte-tt "+
-			"http://www.smpte-ra.org/schemas/2052-1/2010/smpte-tt.xsd",
+			"http://www.smpte-ra.org/schemas/2052-1/2010/smpte-tt.xsd"+
+			"urn:ebu:metadata "+
+			"urn:ebu:style ",
 		"",
 		"",
 	)

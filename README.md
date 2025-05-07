@@ -34,6 +34,7 @@ Manifesto supports repackaging of DRM-protected content without decryption. If d
     - [`tfdt` box is added to segments if missing](#tfdt-box-is-added-to-segments-if-missing)
     - [`DataOffset` in `trun` box is always reset to 0](#dataoffset-in-trun-box-is-always-reset-to-0)
     - [`sidx` box is added to subtitle segments if present](#sidx-box-is-added-to-subtitle-segments-if-present)
+    - [`STPP` subtitle segments are modified](#stpp-subtitle-segments-are-modified)
   - [Performance](#performance)
     - [Caching](#caching)
   - [Stand on piracy](#stand-on-piracy)
@@ -148,7 +149,7 @@ Example config:
 - `bind_addr`: Bind address to expose the service to. If set to `127.0.0.1` only local connections will be accepted, if set to `0.0.0.0` all connections are accepted. If set to a specific interface's IP address, only connections coming from that interface will be accepted.
 - `save_dir`: Directory where cached requests will be saved for the `cache_duration` time. The tool deletes all files stored here during each startup, so don't put anything important here. The directory will be created if it doesn't exist.
 - `log_path`: Path to the log file. If not set, only stdout will be used.
-- `allow_subs`: If set to `true`, subtitles will be included in transformed manifest files. By default off, because some providers include subtitle streams, but in reality it's unused.
+- `allow_subs`: If set to `true`, subtitles will be included in transformed manifest files. By default off, because some providers include subtitle streams, but in reality it's unused or only contains debug information.
 - `cache_duration`: Duration for which the cached requests will be saved. All calls done by the service will be cached for this duration including source manifests. Choose a value wisely. Too less and you end up hammering the source. Too much and you end up with a lot of data on your disk + manifests will serve stale data.
 - `global_headers`: HTTP headers that will be added to all requests. This is useful for authentication or other purposes. The headers are passed as a map of key-value pairs. Not necessary if you don't need any headers.
 - `http_proxy`: Proxy to use for outgoing HTTP traffic. This is useful if you want to route all requests through a proxy. The proxy is passed as a string in the format `protocol://username:password@host:port`. If not set, no proxy will be used. Equivalent to `HTTP_PROXY` environment variable.
@@ -241,7 +242,11 @@ In depth comparison:
 
 **Works perfectly, but segments are modified by the tool for that**. VLC had similar issues like FFmpeg at first, though playback was mostly seamless. Audio was noticably late though and sometimes either the video or the audio track was cut off presumably to sync up. This is because VLC seemingly also ignores timings set in manifests and solely relies on the individual segments for timestamps. After lots of research, I figured that if I add a `tfdt` box to the segments with the time fetched from the manifests (which is kind of hacky, but where else would I get timestamps from), VLC is able to play the content without any issues. If there is already a `tfdt` box in the segment, it is left as-is.
 
-Playback has been tested on both Linux and Android versions and it was perfect. Even subtitles and multiple tracks work.
+If `delay` is set to a non-zero value for a specific channel, VLC does not automatically switch to the best quality level and remains on the first available one. This appears to be a VLC bug. When `delay` is not set, quality switching works as expected.
+
+Playback has been tested on both Linux and Android versions and works perfectly, including subtitles* and multiple tracks.
+
+* When the DASH manifest is live, VLC may fail to download subtitles under certain conditions; the cause is currently unknown. Setting `delay` to a non-zero value for the channel ensures subtitles are always fetched, but introduces another issue: VLC becomes stuck on the first available quality level and does not switch to the best one.
 
 ### InputStream Adaptive (Kodi)
 
@@ -312,6 +317,16 @@ All tested segments played this way just fine, so I ended up making this a defau
 ### `sidx` box is added to subtitle segments if present
 
 FFmpeg seemingly panics if `sidx` isn't present in subtitle chunks, which is understandable since it relies on this box for proper playback. Unfortunately, some providers omit the `sidx` box in their segment responses. To address this, a workaround was implemented: the tool uses the duration of the first subtitle segment as a reference value for `SubSegmentDuration`. While this approach may not strictly adhere to standards, it has proven effective in ensuring playback functionality.
+
+### `STPP` subtitle segments are modified
+
+When an `STPP` subtitle segment is detected in an original MSS manifest, its chunks contain relative timestamps. However, MPEG-DASH requires absolute timestamps. To address this, the tool extracts the `TTML` XML data from the `mdat` box, updates the timestamps to absolute values based on the segment's start time (`segment start timestamp / timescale`), and writes the modified XML back to the `mdat` box.
+
+Because Go's built-in XML decoder does not support namespaces, the tool manually parses and updates the `TTML` XML data. After modifying the `mdat` box, it also updates related boxes such as `tfhd` and `trun` to ensure their sample size and duration fields match the new subtitle data, as many players rely on these values for correct playback.
+
+Through extensive testing, it was found that some players do not handle pre-populated sample definitions in the `trun` box well. If there is a single sample in the `mdat` box (as is typical for subtitles), the tool adds an empty sample to the `trun` box and sets the `tfhd` default sample size and duration accordingly. This approach ensures compatibility with Kodi, VLC, and dash.js.
+
+Note: The tool only modifies timestamps and does not alter subtitle styling or sizing, even if provider defaults are suboptimal.
 
 ## Performance
 
