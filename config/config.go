@@ -76,6 +76,10 @@ type Channel struct {
 	Url string `json:"url"`
 	// If channel is encrypted, this is a list of keys to use for decryption, if left empty, no decryption will be attempted
 	Keys []string `json:"keys"`
+	// Value to advertise in MPEG-DASH suggestedPresentationDelay attribute
+	// useful for live streams where chunks aren't yet available.
+	// Set to 0 to disable
+	Delay JSONDuration `json:"delay"`
 }
 
 // Key represents a keyid and key used for decryption

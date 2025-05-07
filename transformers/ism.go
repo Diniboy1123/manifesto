@@ -59,6 +59,7 @@ func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs b
 	// streamindex to segmenttemplate
 	for index, streamIndex := range ismManifest.StreamIndexes {
 		var segmentTimelineSs []models.SegmentTimelineS
+
 		for chunk, info := range streamIndex.ChunkInfos {
 			segment := models.SegmentTimelineS{
 				D: info.Duration,
@@ -240,6 +241,12 @@ func SmoothToDashManifest(ismManifest *models.SmoothStream, hasKeys, allowSubs b
 
 	if ismManifest.IsLive {
 		dashManifest.MinimumUpdatePeriod = &xsd.Duration{Seconds: 2}
+
+		// Some providers require this for smooth playback when certain chunks are not yet available.
+		// Because the original Smooth manifest does not include this value, I added a per-channel configuration option
+		if channel.Delay > 0 {
+			dashManifest.SuggestedPresentationDelay = &xsd.Duration{Seconds: int64(channel.Delay.Duration().Seconds())}
+		}
 
 		if ismManifest.DVRWindowLength > 0 {
 			dashManifest.TimeShiftBufferDepth = &xsd.Duration{Seconds: ismManifest.DVRWindowLength / 10000000}

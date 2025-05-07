@@ -133,7 +133,8 @@ Example config:
             "destination_type": "mpd",
             "name": "Microsoft Encrypted Test",
             "url": "https://test.playready.microsoft.com/media/profficialsite/tearsofsteel_4k.ism.smoothstreaming/manifest",
-            "keys": ["6f651ae1dbe44434bcb4690d1564c41c:88da852ae4fa2e1e36aeb2d5c94997b1"]
+            "keys": ["6f651ae1dbe44434bcb4690d1564c41c:88da852ae4fa2e1e36aeb2d5c94997b1"],
+            "delay": "2s"
         }
     ]
   }
@@ -167,6 +168,7 @@ Example config:
   - `name`: Pretty name for the channel. Currently unused, but will be used in the future to display names and render channel lists.
   - `url`: URL of the source manifest. This is the URL that will be transformed to DASH.
   - `keys`: List of keys in hex format that will be used to decrypt the content. The keys are passed as a list of strings. Each key is a string in the format `key_id:key`. The key_id is the ID of the key and the key is the actual key. For now only one key is supported. If left unspecified, the service will look into manifests and if it notices that the manifest is encrypted, it will not attempt to strip encryption. If it sees an unencrypted manifest, it will serve the unencrypted data.
+  - `delay`: Value to advertise in MPEG-DASH suggestedPresentationDelay attribute. Useful for live streams where future chunks aren't yet available. Since Smooth manifests don't include this value, it can be set manually on a per-channel basis.
 
 ### Playback
 
