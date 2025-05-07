@@ -33,20 +33,14 @@ func getTLSConfig(certMap []config.TLSDomainConfig, bogusDomain string) *tls.Con
 			return &bogusCert, nil
 		},
 		MinVersion: tls.VersionTLS12,
-		NextProtos: []string{"h2", "http/1.1"},
 	}
 }
 
 func startHTTPSListener(srv *http.Server) {
 	cfg := config.Get()
-	tlsCfg := getTLSConfig(cfg.TLSDomainMap, cfg.BogusDomain)
+	srv.TLSConfig = getTLSConfig(cfg.TLSDomainMap, cfg.BogusDomain)
 
-	listener, err := tls.Listen("tcp", srv.Addr, tlsCfg)
-	if err != nil {
-		log.Fatalf("Failed to start HTTPS listener: %v", err)
-	}
-
-	if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("HTTPS server error: %v", err)
+	if err := srv.ListenAndServeTLS("", ""); err != nil {
+		log.Fatalf("Server failed: %v", err)
 	}
 }
