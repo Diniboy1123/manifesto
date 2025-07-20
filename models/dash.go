@@ -141,6 +141,20 @@ type ProgramInformation struct {
 
 var emptyElementRE = regexp.MustCompile(`></[A-Za-z]+>`)
 
+// NewMPDFromReader creates a new MPD instance by decoding the XML data from the provided io.Reader.
+// It returns a pointer to the MPD instance and an error if any occurred during decoding.
+func NewMPDFromReader(r io.Reader) (*MPD, error) {
+	var mpd MPD
+	decoder := xml.NewDecoder(r)
+	
+	err := decoder.Decode(&mpd)
+	if err != nil {
+		return nil, err
+	}
+	
+	return &mpd, nil
+}
+
 // Encode encodes the MPD object to XML format
 // and returns the byte representation of the XML
 // with the XML declaration prepended.

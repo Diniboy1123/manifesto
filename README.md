@@ -136,6 +136,13 @@ Example config:
             "url": "https://test.playready.microsoft.com/media/profficialsite/tearsofsteel_4k.ism.smoothstreaming/manifest",
             "keys": ["6f651ae1dbe44434bcb4690d1564c41c:88da852ae4fa2e1e36aeb2d5c94997b1"],
             "delay": "2s"
+        },
+        {
+            "id": "dashproxy",
+            "source_type": "mpd",
+            "destination_type": "mpd",
+            "name": "DASH Proxy Example",
+            "url": "https://example.com/dash/manifest.mpd"
         }
     ]
   }
@@ -164,11 +171,14 @@ Example config:
 - `users`: List of users that can access the service. Each user has a `username` and a `token`. The token is used for authentication. If defined, the service will require a token in each call in the path e.g. `/mysecuretoken/stream/...`. If not defined, the service will be open to everyone. Username is only used for logging purposes.
 - `channels`: Object that maps groups to their respective channels. Each group can include multiple channels, allowing for organized management of streaming sources.
   - `id`: Unique ID of the channel. This is used in the URL to access the channel.
-  - `source_type`: Type of the channel. Currently only `ism` is supported and the field is unused. Please set it regardless in case the tool is extended to support other formats in the future.
-  - `destination_type`: Type of the destination manifest. Currently only `mpd` is supported and the field is unused. Please set it regardless in case the tool is extended to support other formats in the future.
-  - `name`: Pretty name for the channel. Currently unused, but will be used in the future to display names and render channel lists.
-  - `url`: URL of the source manifest. This is the URL that will be transformed to DASH.
-  - `keys`: List of keys in hex format that will be used to decrypt the content. The keys are passed as a list of strings. Each key is a string in the format `key_id:key`. The key_id is the ID of the key and the key is the actual key. For now only one key is supported. If left unspecified, the service will look into manifests and if it notices that the manifest is encrypted, it will not attempt to strip encryption. If it sees an unencrypted manifest, it will serve the unencrypted data.
+  - `source_type`: Type of the source manifest. Supported values:
+    - `ism`: Microsoft Smooth Streaming manifest (default for backward compatibility)
+    - `mpd`: MPEG-DASH manifest (proxy mode - fetches existing DASH manifests and rewrites URLs to route through manifesto)
+  - `destination_type`: Type of the destination manifest. Supported values:
+    - `mpd`: MPEG-DASH manifest (default and currently the only supported output format)
+  - `name`: Pretty name for the channel. Currently used in the generated manifest's program information.
+  - `url`: URL of the source manifest. This is the URL that will be fetched and transformed.
+  - `keys`: List of keys in hex format that will be used to decrypt the content. The keys are passed as a list of strings. Each key is a string in the format `key_id:key`. The key_id is the ID of the key and the key is the actual key. For now only one key is supported. If left unspecified, the service will look into manifests and if it notices that the manifest is encrypted, it will not attempt to strip encryption. If it sees an unencrypted manifest, it will serve the unencrypted data. Note: Currently only supported for ISM sources.
   - `delay`: Value to advertise in MPEG-DASH suggestedPresentationDelay attribute. Useful for live streams where future chunks aren't yet available. Since Smooth manifests don't include this value, it can be set manually on a per-channel basis.
 
 ### Playback

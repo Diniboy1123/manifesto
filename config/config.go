@@ -64,11 +64,12 @@ type Config struct {
 type Channel struct {
 	// Unique identifier for the channel, used in the URLs to identify the channel
 	Id string `json:"id"`
-	// Reserved for future use to specify the source type of the channel.
-	// Currently, it is unused and should be set to "ism" as a placeholder.
+	// Source type of the channel. Supported values:
+	// - "ism": Microsoft Smooth Streaming manifest (default for backward compatibility)
+	// - "mpd": MPEG-DASH manifest (proxy mode)
 	SourceType string `json:"source_type"`
-	// Reserved for future use to specify the destination type of the channel.
-	// Currently unused, but intended for future support of different output formats. Set it to "mpd" for now.
+	// Destination type for the output. Supported values:
+	// - "mpd": MPEG-DASH manifest (default and currently the only supported output format)
 	DestinationType string `json:"destination_type"`
 	// Friendly name for the channel, might be used in the future for display purposes
 	Name string `json:"name"`
@@ -234,6 +235,16 @@ func validateConfig(config Config) error {
 	if config.CacheDuration.Duration() <= 0 {
 		return fmt.Errorf("cache_duration must be greater than 0")
 	}
+	
+	// Validate channels
+	for groupName, channels := range config.Channels {
+		for _, channel := range channels {
+			if err := validateChannel(channel, groupName); err != nil {
+				return err
+			}
+		}
+	}
+	
 	if len(config.TLSDomainMap) > 0 || config.HttpsPort > 0 {
 		if config.HttpsPort > 0 && len(config.TLSDomainMap) == 0 {
 			return fmt.Errorf("https_port is set, but tls_domain_map must also be provided")
@@ -257,6 +268,38 @@ func validateConfig(config Config) error {
 		}
 	}
 
+	return nil
+}
+
+// validateChannel validates an individual channel configuration
+func validateChannel(channel Channel, groupName string) error {
+	if channel.Id == "" {
+		return fmt.Errorf("channel id cannot be empty in group %s", groupName)
+	}
+	if channel.Url == "" {
+		return fmt.Errorf("channel url cannot be empty for channel %s in group %s", channel.Id, groupName)
+	}
+	
+	// Validate source type
+	switch channel.SourceType {
+	case "", "ism": // Default to ISM for backward compatibility
+		// ISM source type is valid
+	case "mpd":
+		// MPD source type is valid
+	default:
+		return fmt.Errorf("unsupported source_type '%s' for channel %s in group %s. Supported types: ism, mpd", 
+			channel.SourceType, channel.Id, groupName)
+	}
+	
+	// Validate destination type
+	switch channel.DestinationType {
+	case "", "mpd": // Default to MPD for now
+		// MPD destination type is valid
+	default:
+		return fmt.Errorf("unsupported destination_type '%s' for channel %s in group %s. Supported types: mpd", 
+			channel.DestinationType, channel.Id, groupName)
+	}
+	
 	return nil
 }
 
