@@ -178,18 +178,14 @@ func HlsSegmentHandler(w http.ResponseWriter, r *http.Request) {
 	case "audio":
 		switch qualityLevel.FourCC {
 		case "AACL":
-			audioConfig, err := audio.CodecPrivateDataToAudioSpecificConfig(qualityLevel.CodecPrivateData)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("Error parsing audio config: %v", err), http.StatusInternalServerError)
+			audioConfig, parseErr := audio.CodecPrivateDataToAudioSpecificConfig(qualityLevel.CodecPrivateData)
+			if parseErr != nil {
+				http.Error(w, fmt.Sprintf("Error parsing audio config: %v", parseErr), http.StatusInternalServerError)
 				return
 			}
 			err = ts.MuxAudioAACSegmentToTS(r.Context(), w, chunkData, decryptInfo, key,
 				audioConfig.ObjectType, audioConfig.SamplingFrequency, audioConfig.ChannelConfiguration,
 				uint32(smoothStream.TimeScale), segmentTime)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("Error muxing audio to TS: %v", err), http.StatusInternalServerError)
-				return
-			}
 		case "EC-3":
 			err = ts.MuxAudioEAC3SegmentToTS(r.Context(), w, chunkData, decryptInfo, key,
 				uint32(smoothStream.TimeScale), segmentTime)

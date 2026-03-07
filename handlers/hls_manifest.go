@@ -14,10 +14,9 @@ import (
 
 // HlsMasterHandler handles requests for the HLS master playlist (manifest.m3u8).
 // It retrieves the SmoothStream manifest, transforms it into an HLS master playlist
-// listing all available video variants and audio/subtitle renditions.
+// listing all available video variants and audio renditions.
 //
-// The handler uses fMP4/CMAF segments (HLS version 7), allowing the same init and media
-// segment handlers to serve both DASH and HLS clients.
+// The handler generates playlists that reference MPEG-TS segments served by HlsSegmentHandler.
 //
 // The handler expects the channel information to be present in the request context.
 func HlsMasterHandler(w http.ResponseWriter, r *http.Request) {
@@ -68,13 +67,12 @@ func HlsMasterHandler(w http.ResponseWriter, r *http.Request) {
 
 // HlsMediaHandler handles requests for HLS media playlists (playlist.m3u8).
 // It generates a media playlist for a specific quality level of a stream,
-// listing all segment URLs with their durations.
+// listing all MPEG-TS segment URLs with their durations.
 //
 // The handler expects the following URL parameters:
 //   - qualityId: The ID of the quality level (e.g., "video_0", "audio_eng_0").
 //
-// The handler uses fMP4 segments with EXT-X-MAP for init segments, reusing
-// the same segment format as DASH.
+// Segments are served as MPEG-TS (.ts) by HlsSegmentHandler.
 func HlsMediaHandler(w http.ResponseWriter, r *http.Request) {
 	channel, ok := r.Context().Value("channel").(config.Channel)
 	if !ok {
