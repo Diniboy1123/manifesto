@@ -45,10 +45,16 @@ func Start() {
 		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/manifest.mpd", buildChain(handlers.DashManifestHandler))
 		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/{qualityId}/init.mp4", buildChain(handlers.InitHandler))
 		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/{qualityId}/{time}/{rest...}", buildChain(handlers.SegmentHandler))
+		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/manifest.m3u8", buildChain(handlers.HlsMasterHandler))
+		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/{qualityId}/playlist.m3u8", buildChain(handlers.HlsMediaHandler))
+		mux.HandleFunc("GET /{token}/stream/{groupId}/{channelId}/{qualityId}/{time}/seg.ts", buildChain(handlers.HlsSegmentHandler))
 	} else {
 		mux.HandleFunc("GET /stream/{groupId}/{channelId}/manifest.mpd", buildChain(handlers.DashManifestHandler))
 		mux.HandleFunc("GET /stream/{groupId}/{channelId}/{qualityId}/init.mp4", buildChain(handlers.InitHandler))
 		mux.HandleFunc("GET /stream/{groupId}/{channelId}/{qualityId}/{time}/{rest...}", buildChain(handlers.SegmentHandler))
+		mux.HandleFunc("GET /stream/{groupId}/{channelId}/manifest.m3u8", buildChain(handlers.HlsMasterHandler))
+		mux.HandleFunc("GET /stream/{groupId}/{channelId}/{qualityId}/playlist.m3u8", buildChain(handlers.HlsMediaHandler))
+		mux.HandleFunc("GET /stream/{groupId}/{channelId}/{qualityId}/{time}/seg.ts", buildChain(handlers.HlsSegmentHandler))
 	}
 
 	if cfg.HideNotFound {
